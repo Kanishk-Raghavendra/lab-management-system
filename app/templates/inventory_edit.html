@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Edit Inventory: {{ item.item_name }}</h1>
+    
+    <form method="POST">
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantity" name="quantity" value="{{ item.quantity }}" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="Available" {% if item.status == 'Available' %}selected{% endif %}>
+                    Available
+                </option>
+                <option value="In Use" {% if item.status == 'In Use' %}selected{% endif %}>
+                    In Use
+                </option>
+                <option value="Maintenance" {% if item.status == 'Maintenance' %}selected{% endif %}>
+                    Maintenance
+                </option>
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Save Changes</button>
+        <a href="{{ url_for('main_routes.inventory_list') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}

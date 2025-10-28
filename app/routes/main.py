@@ -1,3 +1,4 @@
+from flask import (render_template, redirect, url_for, flash, request, current_app, abort) # Add 'abort'
 from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from app import bcrypt
@@ -86,3 +87,100 @@ def admin_page():
 @supervisor_required
 def supervisor_page():
     return "<h1>Supervisor Page</h1><p>Supervisors and Admins can see this.</p>"
+
+# --- Inventory CRUD Routes ---
+
+@main_routes_blueprint.route('/inventory')
+@login_required
+def inventory_list():
+    """
+    (R)EAD: Displays a list of all inventory items from all labs.
+    This query uses JOINs.
+    """
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # JOIN query to get item names and lab names
+        query = """
+            SELECT 
+                inv.inventory_id,
+                i.item_name,
+                l.lab_name,
+                inv.quantity,
+                inv.status
+            FROM Inventory inv
+            JOIN Item i ON inv.item_id = i.item_id
+            JOIN Lab l ON inv.lab_id = l.lab_id
+            ORDER BY l.lab_name, i.item_name
+        """
+        cursor.execute(query)
+        inventory_items = cursor.fetchall()
+        
+        cursor.close()
+        db_conn.close()
+        
+        return render_template('inventory_list.html', 
+                               title='Inventory', 
+                               inventory_items=inventory_items)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+
+
+@main_routes_blueprint.route('/inventory/edit/<int:inventory_id>', methods=['GET', 'POST'])
+@login_required
+@supervisor_required
+def edit_inventory(inventory_id):
+    """
+    (U)PDATE: Shows a form to edit an inventory item (GET)
+    and processes the form submission (POST).
+    """
+    db_conn = None  # Initialize to None
+    cursor = None   # Initialize to None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            # --- UPDATE LOGIC ---
+            new_quantity = request.form.get('quantity')
+            new_status = request.form.get('status')
+            
+            update_query = """
+                UPDATE Inventory 
+                SET quantity = %s, status = %s, last_updated = NOW()
+                WHERE inventory_id = %s
+            """
+            cursor.execute(update_query, (new_quantity, new_status, inventory_id))
+            db_conn.commit()
+            
+            flash('Inventory item updated successfully!', 'success')
+            return redirect(url_for('main_routes.inventory_list'))
+
+        # --- GET LOGIC (if not POST) ---
+        get_query = """
+            SELECT inv.inventory_id, i.item_name, inv.quantity, inv.status
+            FROM Inventory inv
+            JOIN Item i ON inv.item_id = i.item_id
+            WHERE inv.inventory_id = %s
+        """
+        cursor.execute(get_query, (inventory_id,))
+        item = cursor.fetchone()
+        
+        if not item:
+            abort(404) # Not found
+            
+        # This is the line that renders your correct template
+        return render_template('inventory_edit.html', title='Edit Inventory', item=item)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.inventory_list'))
+    finally:
+        # This 'finally' block ensures the connection is closed
+        # even if an error happens.
+        if cursor:
+            cursor.close()
+        if db_conn:
+            db_conn.close()

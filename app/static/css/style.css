@@ -1,0 +1,30 @@
+/* Custom App Styles */
+body {
+    background-color: #f8f9fa; /* Light grey background */
+}
+
+.navbar {
+    margin-bottom: 20px;
+}
+
+/* Make table headers bold */
+.table thead th {
+    vertical-align: middle;
+    font-weight: 600;
+}
+
+/* Center action buttons */
+.table td.actions {
+    text-align: center;
+    white-space: nowrap;
+    width: 1%;
+}
+
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    font-weight: 600;
+}
