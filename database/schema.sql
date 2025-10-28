@@ -1,7 +1,7 @@
--- ==============================================
--- Lab Management System - Complete Schema
--- Includes Roles, Staff, Items, Inventory, Orders, Experiments, Maintenance
--- ==============================================
+/* ===========================================
+Lab Management System - Complete Schema
+==============================================
+*/
 
 -- 1. Create Database
 CREATE DATABASE IF NOT EXISTS lab_management;
@@ -10,7 +10,7 @@ USE lab_management;
 -- 2. Roles Table
 CREATE TABLE Roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
-    role_name VARCHAR(50) NOT NULL UNIQUE,
+    role_name VARCHAR(50) NOT NULL UNIQUE, /* Admin, Supervisor, Assistant */
     description VARCHAR(255)
 );
 
@@ -47,8 +47,9 @@ CREATE TABLE Staff (
     name VARCHAR(100) NOT NULL,
     role_id INT NOT NULL,
     contact_no VARCHAR(15),
-    email VARCHAR(100),
+    email VARCHAR(100) UNIQUE NOT NULL, /* Added UNIQUE NOT NULL, needed for login */
     lab_id INT,
+    password_hash VARCHAR(255) NOT NULL, /* !! ADDED: For login */
     FOREIGN KEY (role_id) REFERENCES Roles(role_id),
     FOREIGN KEY (lab_id) REFERENCES Lab(lab_id)
 );
@@ -57,26 +58,29 @@ CREATE TABLE Staff (
 CREATE TABLE Inventory (
     inventory_id INT AUTO_INCREMENT PRIMARY KEY,
     item_id INT NOT NULL,
-    lab_id INT,
+    lab_id INT NOT NULL, /* !! UPDATED: Made this NOT NULL */
     quantity INT DEFAULT 0,
     status ENUM('Available','In Use','Maintenance') DEFAULT 'Available',
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (item_id) REFERENCES Item(item_id),
-    FOREIGN KEY (lab_id) REFERENCES Lab(lab_id)
+    FOREIGN KEY (lab_id) REFERENCES Lab(lab_id),
+    UNIQUE KEY uk_item_lab (item_id, lab_id) /* ADDED: Prevents duplicate item entries per lab */
 );
 
 -- 8. Order Table
 CREATE TABLE `Order` (
     order_id INT AUTO_INCREMENT PRIMARY KEY,
     supplier_id INT NOT NULL,
+    lab_id INT NOT NULL, /* !! ADDED: Specifies which lab the order is for */
     order_date DATE NOT NULL,
     delivery_date DATE,
     total_cost DECIMAL(10,2),
     status ENUM('Pending','Received','Cancelled') DEFAULT 'Pending',
-    FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id)
+    FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id),
+    FOREIGN KEY (lab_id) REFERENCES Lab(lab_id) /* !! ADDED: Foreign key for lab_id */
 );
 
--- 9. Order_Item Junction Table (M:N relationship)
+-- 9. Order_Item Junction Table
 CREATE TABLE Order_Item (
     order_id INT NOT NULL,
     item_id INT NOT NULL,
@@ -103,13 +107,14 @@ CREATE TABLE Experiment (
 CREATE TABLE Student (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE, /* !! ADDED: From seed.sql */
     lab_id INT,
     assigned_staff_id INT,
     FOREIGN KEY (lab_id) REFERENCES Lab(lab_id),
     FOREIGN KEY (assigned_staff_id) REFERENCES Staff(staff_id)
 );
 
--- 11. Experiment_Inventory Junction Table (M:N relationship)
+-- 11. Experiment_Inventory Junction Table
 CREATE TABLE Experiment_Inventory (
     experiment_id INT NOT NULL,
     inventory_id INT NOT NULL,
@@ -119,7 +124,7 @@ CREATE TABLE Experiment_Inventory (
     FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id)
 );
 
--- 12. Maintenance_Log Table (linked to Inventory)
+-- 12. Maintenance_Log Table
 CREATE TABLE Maintenance_Log (
     maintenance_id INT AUTO_INCREMENT PRIMARY KEY,
     inventory_id INT NOT NULL,
@@ -131,6 +136,13 @@ CREATE TABLE Maintenance_Log (
     FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
 );
 
--- ==============================================
--- SCHEMA CREATION COMPLETE
--- ==============================================
+-- 13. Low_Stock_Alert Table (From triggers.sql)
+CREATE TABLE IF NOT EXISTS Low_Stock_Alert (
+    alert_id INT AUTO_INCREMENT PRIMARY KEY,
+    item_id INT NOT NULL,
+    inventory_id INT NOT NULL,
+    alert_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    quantity INT,
+    FOREIGN KEY (item_id) REFERENCES Item(item_id),
+    FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id)
+);

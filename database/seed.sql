@@ -16,12 +16,12 @@ INSERT INTO Lab(lab_name, lab_type, location) VALUES
 ('Chem Lab 2','Chemistry','Building B');
 
 -- -----------------------
--- Staff
+-- Staff (!! UPDATED: Added password_hash !!)
 -- -----------------------
-INSERT INTO Staff(name, role_id, contact_no, email, lab_id) VALUES
-('Alice',1,'9999999999','alice@lab.com',NULL), -- Admin
-('Bob',2,'8888888888','bob@lab.com',1),       -- Supervisor
-('Charlie',3,'7777777777','charlie@lab.com',1); -- Assistant
+INSERT INTO Staff(name, role_id, contact_no, email, lab_id, password_hash) VALUES
+('Alice',1,'9999999999','alice@lab.com',NULL,'pass_alice_hashed'), -- Admin
+('Bob',2,'8888888888','bob@lab.com',1,'pass_bob_hashed'),       -- Supervisor
+('Charlie',3,'7777777777','charlie@lab.com',1,'pass_charlie_hashed'); -- Assistant
 
 -- -----------------------
 -- Suppliers
@@ -43,29 +43,29 @@ INSERT INTO Item(item_name, item_type, description, unit_price, min_stock_level)
 -- Inventory
 -- -----------------------
 INSERT INTO Inventory(item_id, lab_id, quantity, status) VALUES
-(1,1,5,'Available'),
-(2,1,100,'Available'),
-(3,1,3,'Available'),
-(4,1,50,'Available');
+(1,1,5,'Available'),  -- Microscope in Lab 1
+(2,1,100,'Available'), -- Test Tube in Lab 1
+(3,1,3,'Available'),  -- Bunsen Burner in Lab 1
+(4,1,50,'Available');  -- Beaker in Lab 1
 
 -- -----------------------
--- Orders
+-- Orders (!! UPDATED: Added lab_id=1 !!)
 -- -----------------------
-INSERT INTO `Order`(supplier_id, order_date, delivery_date, total_cost, status) VALUES
-(1,'2025-10-09','2025-10-12',10000,'Pending');
+INSERT INTO `Order`(supplier_id, lab_id, order_date, delivery_date, total_cost, status) VALUES
+(1, 1, '2025-10-09','2025-10-12',10000,'Pending');
 
 INSERT INTO Order_Item(order_id, item_id, quantity_ordered, cost_per_unit) VALUES
-(1,1,2,5000),
-(1,2,50,5);
+(1,1,2,5000), -- 2 Microscopes
+(1,2,50,5);   -- 50 Test Tubes
 
 -- -----------------------
--- Students
+-- Students (!! UPDATED: Added email column and values !!)
 -- -----------------------
-INSERT INTO Student(name, email, lab_id) VALUES
-('Student One','student1@email.com',1),
-('Student Two','student2@email.com',1),
-('Student Three','student3@email.com',1),
-('Student Four','student4@email.com',1);
+INSERT INTO Student(name, email, lab_id, assigned_staff_id) VALUES
+('Student One','student1@email.com',1, 2),
+('Student Two','student2@email.com',1, 2),
+('Student Three','student3@email.com',1, 3),
+('Student Four','student4@email.com',1, 3);
 
 -- -----------------------
 -- Experiments
