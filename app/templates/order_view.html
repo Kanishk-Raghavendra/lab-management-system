@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Order #{{ order.order_id }}</h1>
+        <div>
+            {% if order.status == 'Pending' %}
+                <form action="{{ url_for('main_routes.receive_order', order_id=order.order_id) }}" method="POST" class="d-inline"
+                      onsubmit="return confirm('Are you sure you want to mark this order as received? This will update inventory.');">
+                    <button type="submit" class="btn btn-success">Mark as Received</button>
+                </form>
+            {% endif %}
+            <a href="{{ url_for('main_routes.order_list') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Order Details
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Supplier:</strong> {{ order.supplier_name }}</p>
+                    <p><strong>Lab:</strong> {{ order.lab_name }}</p>
+                    <p><strong>Status:</strong> 
+                        {% if order.status == 'Pending' %}
+                            <span class="badge bg-warning text-dark">{{ order.status }}</span>
+                        {% elif order.status == 'Received' %}
+                            <span class="badge bg-success">{{ order.status }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ order.status }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Order Date:</strong> {{ order.order_date }}</p>
+                    <p><strong>Delivery Date:</strong> {{ order.delivery_date or 'N/A' }}</p>
+                    <p><strong>Total Cost:</strong> ${{ "%.2f"|format(order.total_cost) if order.total_cost else 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Items on this Order
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity Ordered</th>
+                        <th>Cost Per Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.quantity_ordered }}</td>
+                        <td>${{ "%.2f"|format(item.cost_per_unit) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center">No items have been added to this order yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if order.status == 'Pending' %}
+    <div class="card">
+        <div class="card-header">
+            Add Item to Order
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('main_routes.add_item_to_order', order_id=order.order_id) }}" method="POST">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="item_id" class="form-label">Item</label>
+                        <select class="form-select" id="item_id" name="item_id" required>
+                            <option value="" disabled selected>Select an item...</option>
+                            {% for item in all_items %}
+                                <option value="{{ item.item_id }}">{{ item.item_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="cost_per_unit" class="form-label">Cost Per Unit</label>
+                        <input type="number" class="form-control" id="cost_per_unit" name="cost_per_unit" step="0.01" min="0" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Item</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}

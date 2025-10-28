@@ -353,3 +353,200 @@ def delete_item(item_id):
         if db_conn: db_conn.close()
         
     return redirect(url_for('main_routes.item_list'))
+
+# --- Order Management Routes (Supervisor+) ---
+
+@main_routes_blueprint.route('/orders')
+@login_required
+@supervisor_required
+def order_list():
+    """ (R)EAD: List all orders. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT o.order_id, s.name as supplier_name, l.lab_name, 
+                   o.order_date, o.delivery_date, o.total_cost, o.status
+            FROM `Order` o
+            JOIN Supplier s ON o.supplier_id = s.supplier_id
+            JOIN Lab l ON o.lab_id = l.lab_id
+            ORDER BY o.order_date DESC
+        """
+        cursor.execute(query)
+        orders = cursor.fetchall()
+        return render_template('order_list.html', title="Manage Orders", orders=orders)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/order/new', methods=['GET', 'POST'])
+@login_required
+@supervisor_required
+def new_order():
+    """ (C)REATE: Create a new order (calls a Stored Procedure). """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            supplier_id = request.form.get('supplier_id')
+            lab_id = request.form.get('lab_id')
+            order_date = request.form.get('order_date')
+            delivery_date_raw = request.form.get('delivery_date')
+            total_cost = request.form.get('total_cost')
+
+            delivery_date = delivery_date_raw if delivery_date_raw else None
+            
+            # Call the Stored Procedure 'Add_Order'
+            cursor.callproc('Add_Order', [supplier_id, lab_id, order_date, delivery_date, total_cost])
+            db_conn.commit()
+            
+            # Get the ID of the order we just created
+            cursor.execute("SELECT LAST_INSERT_ID() AS new_id")
+            new_order_id = cursor.fetchone()['new_id']
+            
+            flash('New order created successfully! Now add items to it.', 'success')
+            return redirect(url_for('main_routes.view_order', order_id=new_order_id))
+
+        # GET request: Fetch suppliers and labs for the dropdowns
+        cursor.execute("SELECT supplier_id, name FROM Supplier ORDER BY name")
+        suppliers = cursor.fetchall()
+        
+        # Only show labs the user is associated with (if not admin)
+        if current_user.is_admin():
+            cursor.execute("SELECT lab_id, lab_name FROM Lab ORDER BY lab_name")
+        else:
+            # Supervisor is tied to one lab
+            query = "SELECT lab_id, lab_name FROM Lab WHERE lab_id = %s"
+            cursor.execute(query, (current_user.lab_id,))
+            
+        labs = cursor.fetchall()
+        
+        return render_template('order_form.html', title="New Order", suppliers=suppliers, labs=labs)
+        
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.order_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/order/<int:order_id>')
+@login_required
+@supervisor_required
+def view_order(order_id):
+    """ (R)EAD: View a single order, its items, and add new items. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        # Get Order Details
+        query = """
+            SELECT o.*, s.name as supplier_name, l.lab_name
+            FROM `Order` o
+            JOIN Supplier s ON o.supplier_id = s.supplier_id
+            JOIN Lab l ON o.lab_id = l.lab_id
+            WHERE o.order_id = %s
+        """
+        cursor.execute(query, (order_id,))
+        order = cursor.fetchone()
+        
+        if not order:
+            abort(404)
+
+        # Get Items on the Order
+        query_items = """
+            SELECT oi.item_id, i.item_name, oi.quantity_ordered, oi.cost_per_unit
+            FROM Order_Item oi
+            JOIN Item i ON oi.item_id = i.item_id
+            WHERE oi.order_id = %s
+        """
+        cursor.execute(query_items, (order_id,))
+        order_items = cursor.fetchall()
+        
+        # Get all master items to populate the "Add Item" dropdown
+        cursor.execute("SELECT item_id, item_name, unit_price FROM Item ORDER BY item_name")
+        all_items = cursor.fetchall()
+        
+        return render_template('order_view.html', title="View Order", 
+                               order=order, order_items=order_items, all_items=all_items)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.order_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/order/<int:order_id>/add_item', methods=['POST'])
+@login_required
+@supervisor_required
+def add_item_to_order(order_id):
+    """ (U)PDATE: Adds a line item to an existing order. """
+    db_conn = None
+    cursor = None
+    try:
+        item_id = request.form.get('item_id')
+        quantity = request.form.get('quantity')
+        cost = request.form.get('cost_per_unit')
+        
+        query = """
+            INSERT INTO Order_Item (order_id, item_id, quantity_ordered, cost_per_unit)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE 
+                quantity_ordered = quantity_ordered + VALUES(quantity_ordered),
+                cost_per_unit = VALUES(cost_per_unit)
+        """
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        cursor.execute(query, (order_id, item_id, quantity, cost))
+        db_conn.commit()
+        
+        flash('Item added to order.', 'success')
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.view_order', order_id=order_id))
+
+@main_routes_blueprint.route('/order/<int:order_id>/receive', methods=['POST'])
+@login_required
+@supervisor_required
+def receive_order(order_id):
+    """ 
+    (U)PDATE: Mark an order as 'Received'.
+    This will fire 'trg_update_inventory_on_order_receive' in MySQL.
+    """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        query = "UPDATE `Order` SET status = 'Received', delivery_date = CURDATE() WHERE order_id = %s"
+        cursor.execute(query, (order_id,))
+        db_conn.commit()
+        
+        flash('Order marked as "Received". Inventory has been updated.', 'success')
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.view_order', order_id=order_id))

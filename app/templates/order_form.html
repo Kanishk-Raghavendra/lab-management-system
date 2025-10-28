@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="supplier_id" class="form-label">Supplier</label>
+                <select class="form-select" id="supplier_id" name="supplier_id" required>
+                    <option value="" disabled selected>Select a supplier...</option>
+                    {% for supplier in suppliers %}
+                        <option value="{{ supplier.supplier_id }}">{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="lab_id" class="form-label">Deliver To Lab</label>
+                <select class="form-select" id="lab_id" name="lab_id" required>
+                    <option value="" disabled selected>Select a lab...</option>
+                    {% for lab in labs %}
+                        <option value="{{ lab.lab_id }}">{{ lab.lab_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="order_date" class="form-label">Order Date</label>
+                <input type="date" class="form-control" id="order_date" name="order_date" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="delivery_date" class="form-label">Expected Delivery Date</label>
+                <input type="date" class="form-control" id="delivery_date" name="delivery_date">
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="total_cost" class="form-label">Estimated Total Cost</label>
+            <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input type="number" step="0.01" class="form-control" id="total_cost" name="total_cost" value="0.00" required>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Create Order</button>
+        <a href="{{ url_for('main_routes.order_list') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}
