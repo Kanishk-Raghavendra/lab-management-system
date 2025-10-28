@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Dashboard</h1>
+    <h3>Hello, {{ current_user.name }}!</h3>
+    <p>Your role is: <strong>{{ current_user.role_name }}</strong></p>
+    
+    {% if current_user.lab_id %}
+        <p>You are assigned to Lab ID: {{ current_user.lab_id }}</p>
+    {% else %}
+        <p>You are not assigned to a specific lab (e.g., Admin).</p>
+    {% endif %}
+
+    <p>From here, you will be able to see lab inventories, manage experiments, and view reports based on your role.</p>
+{% endblock %}
