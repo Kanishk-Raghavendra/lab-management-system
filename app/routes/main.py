@@ -1,10 +1,12 @@
-from flask import (render_template, redirect, url_for, flash, request, current_app, abort) # Add 'abort'
-from flask import render_template, redirect, url_for, flash, request, current_app
+from flask import (render_template, redirect, url_for, flash, 
+                   request, current_app, abort)
 from flask_login import login_user, logout_user, login_required, current_user
+import mysql.connector
+
 from app import bcrypt
-from app.models.user import User  # <-- Import User from app.models.user
+from app.models.user import User
 from app.decorators import admin_required, supervisor_required
-from . import main_routes_blueprint # <-- Import the blueprint from this package
+from . import main_routes_blueprint
 
 # We use the blueprint to define routes, not 'main'
 @main_routes_blueprint.route('/')
@@ -166,21 +168,188 @@ def edit_inventory(inventory_id):
             WHERE inv.inventory_id = %s
         """
         cursor.execute(get_query, (inventory_id,))
-        item = cursor.fetchone()
+        
+        # This line defines the 'item' variable
+        item = cursor.fetchone() 
         
         if not item:
             abort(404) # Not found
             
-        # This is the line that renders your correct template
+        # This line uses 'item' after it's defined
         return render_template('inventory_edit.html', title='Edit Inventory', item=item)
         
     except Exception as e:
         flash(f'An error occurred: {e}', 'danger')
         return redirect(url_for('main_routes.inventory_list'))
     finally:
-        # This 'finally' block ensures the connection is closed
-        # even if an error happens.
+        # This block ensures the connection is always closed
         if cursor:
             cursor.close()
         if db_conn:
             db_conn.close()
+
+@main_routes_blueprint.route('/inventory/delete/<int:inventory_id>', methods=['POST'])
+@login_required
+@supervisor_required # Only Supervisors or Admins can delete
+def delete_inventory(inventory_id):
+    """
+    (D)ELETE: Deletes an inventory item from a lab.
+    """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        # Try to delete. DB will throw error 1451 if FK is violated.
+        cursor.execute("DELETE FROM Inventory WHERE inventory_id = %s", (inventory_id,))
+        db_conn.commit()
+        
+        flash('Inventory item removed successfully.', 'success')
+    except mysql.connector.Error as err:
+        if err.errno == 1451: # Foreign Key constraint fail
+            flash('Cannot remove this item. It is in use in an experiment or maintenance log.', 'danger')
+        else:
+            flash(f'An error occurred: {err}', 'danger')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.inventory_list'))            
+
+# --- Item CRUD Routes (Admin Only) ---
+
+@main_routes_blueprint.route('/item')
+@login_required
+@admin_required
+def item_list():
+    """ (R)EAD: List all master items. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Item ORDER BY item_name")
+        items = cursor.fetchall()
+        return render_template('item_list.html', title="Manage Items", items=items)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/item/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_item():
+    """ (C)REATE: Add a new master item. """
+    db_conn = None
+    cursor = None
+    try:
+        if request.method == 'POST':
+            name = request.form.get('item_name')
+            item_type = request.form.get('item_type')
+            desc = request.form.get('description')
+            price = request.form.get('unit_price')
+            min_stock = request.form.get('min_stock_level')
+            
+            query = """
+                INSERT INTO Item (item_name, item_type, description, unit_price, min_stock_level)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            db_conn = current_app.db_pool.get_connection()
+            cursor = db_conn.cursor()
+            cursor.execute(query, (name, item_type, desc, price, min_stock))
+            db_conn.commit()
+            
+            flash(f'Item "{name}" created successfully!', 'success')
+            return redirect(url_for('main_routes.item_list'))
+            
+        # GET request shows the form
+        return render_template('item_form.html', title="New Item", form_action=url_for('main_routes.new_item'), item=None)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        # Rollback in case of error
+        if db_conn: db_conn.rollback()
+        return redirect(url_for('main_routes.item_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/item/edit/<int:item_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_item(item_id):
+    """ (U)PDATE: Edit a master item. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        if request.method == 'POST':
+            name = request.form.get('item_name')
+            item_type = request.form.get('item_type')
+            desc = request.form.get('description')
+            price = request.form.get('unit_price')
+            min_stock = request.form.get('min_stock_level')
+            
+            query = """
+                UPDATE Item SET 
+                item_name = %s, item_type = %s, description = %s, 
+                unit_price = %s, min_stock_level = %s
+                WHERE item_id = %s
+            """
+            cursor.execute(query, (name, item_type, desc, price, min_stock, item_id))
+            db_conn.commit()
+            
+            flash(f'Item "{name}" updated successfully!', 'success')
+            return redirect(url_for('main_routes.item_list'))
+
+        # GET request: fetch item to pre-fill form
+        cursor.execute("SELECT * FROM Item WHERE item_id = %s", (item_id,))
+        item = cursor.fetchone()
+        if not item:
+            abort(404)
+        
+        return render_template('item_form.html', title="Edit Item", form_action=url_for('main_routes.edit_item', item_id=item_id), item=item)
+        
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.item_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/item/delete/<int:item_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_item(item_id):
+    """ (D)ELETE: Delete a master item. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        cursor.execute("DELETE FROM Item WHERE item_id = %s", (item_id,))
+        db_conn.commit()
+        
+        flash('Item deleted successfully!', 'success')
+    except mysql.connector.Error as err:
+        if err.errno == 1451: # Foreign Key constraint fail
+            flash('Cannot delete this item. It is currently in use in an inventory or order.', 'danger')
+        else:
+            flash(f'An error occurred: {err}', 'danger')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.item_list'))

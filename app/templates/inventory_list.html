@@ -39,6 +39,11 @@
                             <a href="{{ url_for('main_routes.edit_inventory', inventory_id=item.inventory_id) }}" class="btn btn-sm btn-primary">
                                 Edit
                             </a>
+                            
+                            <form action="{{ url_for('main_routes.delete_inventory', inventory_id=item.inventory_id) }}" method="POST" class="d-inline"
+                                  onsubmit="return confirm('Are you sure you want to remove this item from the lab inventory?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
                         </td>
                     {% endif %}
                 </tr>
