@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Manage Experiments</h1>
+        <a href="{{ url_for('main_routes.new_experiment') }}" class="btn btn-success">
+            + Log New Experiment
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Lab</th>
+                    <th>Supervisor</th>
+                    <th>Date</th>
+                    <th class="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in experiments %}
+                <tr>
+                    <td>{{ exp.experiment_name }}</td>
+                    <td>{{ exp.lab_name }}</td>
+                    <td>{{ exp.staff_name }}</td>
+                    <td>{{ exp.experiment_date }}</td>
+                    <td class="actions">
+                        <a href="{{ url_for('main_routes.view_experiment', experiment_id=exp.experiment_id) }}" class="btn btn-sm btn-info">
+                            View / Add Inventory
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No experiments logged yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

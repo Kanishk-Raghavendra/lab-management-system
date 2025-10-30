@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label for="experiment_name" class="form-label">Experiment Name</label>
+            <input type="text" class="form-control" id="experiment_name" name="experiment_name" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="lab_id" class="form-label">Lab</label>
+            <select class="form-select" id="lab_id" name="lab_id" required>
+                <option value="" disabled selected>Select a lab...</option>
+                {% for lab in labs %}
+                    <option value="{{ lab.lab_id }}">{{ lab.lab_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Create Experiment</button>
+        <a href="{{ url_for('main_routes.experiment_list') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}

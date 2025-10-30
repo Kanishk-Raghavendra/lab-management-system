@@ -550,3 +550,296 @@ def receive_order(order_id):
         if db_conn: db_conn.close()
         
     return redirect(url_for('main_routes.view_order', order_id=order_id))
+
+# --- Experiment Management Routes (Supervisor+) ---
+
+@main_routes_blueprint.route('/experiments')
+@login_required
+@supervisor_required
+def experiment_list():
+    """ (R)EAD: List all experiments. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT e.experiment_id, e.experiment_name, l.lab_name, s.name as staff_name, e.experiment_date
+            FROM Experiment e
+            JOIN Lab l ON e.lab_id = l.lab_id
+            JOIN Staff s ON e.staff_id = s.staff_id
+            ORDER BY e.experiment_date DESC
+        """
+        cursor.execute(query)
+        experiments = cursor.fetchall()
+        return render_template('experiment_list.html', title="Experiments", experiments=experiments)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/experiment/new', methods=['GET', 'POST'])
+@login_required
+@supervisor_required
+def new_experiment():
+    """ (C)REATE: Create a new experiment (calls Stored Procedure). """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            name = request.form.get('experiment_name')
+            lab_id = request.form.get('lab_id')
+            description = request.form.get('description')
+            staff_id = current_user.id # Assign to logged-in supervisor
+            
+            # Call the Stored Procedure 'Assign_Experiment'
+            cursor.callproc('Assign_Experiment', [name, lab_id, staff_id, description])
+            db_conn.commit()
+            
+            cursor.execute("SELECT LAST_INSERT_ID() AS new_id")
+            new_exp_id = cursor.fetchone()['new_id']
+            
+            flash('New experiment created successfully! Now add inventory items used.', 'success')
+            return redirect(url_for('main_routes.view_experiment', experiment_id=new_exp_id))
+
+        # GET request: Fetch labs (and staff, though we use current_user)
+        if current_user.is_admin():
+            cursor.execute("SELECT lab_id, lab_name FROM Lab ORDER BY lab_name")
+        else:
+            query = "SELECT lab_id, lab_name FROM Lab WHERE lab_id = %s"
+            cursor.execute(query, (current_user.lab_id,))
+        labs = cursor.fetchall()
+        
+        return render_template('experiment_form.html', title="New Experiment", labs=labs)
+        
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.experiment_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/experiment/<int:experiment_id>')
+@login_required
+@supervisor_required
+def view_experiment(experiment_id):
+    """ (R)EAD: View a single experiment and its used inventory. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        # Get Experiment Details
+        query = """
+            SELECT e.*, l.lab_name, s.name as staff_name
+            FROM Experiment e
+            JOIN Lab l ON e.lab_id = l.lab_id
+            JOIN Staff s ON e.staff_id = s.staff_id
+            WHERE e.experiment_id = %s
+        """
+        cursor.execute(query, (experiment_id,))
+        experiment = cursor.fetchone()
+        if not experiment:
+            abort(404)
+
+        # Get Inventory Used in this Experiment
+        query_items = """
+            SELECT ei.quantity_used, i.item_name, inv.inventory_id
+            FROM Experiment_Inventory ei
+            JOIN Inventory inv ON ei.inventory_id = inv.inventory_id
+            JOIN Item i ON inv.item_id = i.item_id
+            WHERE ei.experiment_id = %s
+        """
+        cursor.execute(query_items, (experiment_id,))
+        used_items = cursor.fetchall()
+        
+        # Get AVAILABLE inventory from that lab to add
+        query_avail = """
+            SELECT inv.inventory_id, i.item_name, inv.quantity
+            FROM Inventory inv
+            JOIN Item i ON inv.item_id = i.item_id
+            WHERE inv.lab_id = %s AND inv.status = 'Available' AND inv.quantity > 0
+            ORDER BY i.item_name
+        """
+        cursor.execute(query_avail, (experiment['lab_id'],))
+        available_inventory = cursor.fetchall()
+        
+        return render_template('experiment_view.html', title="View Experiment", 
+                               experiment=experiment, used_items=used_items, 
+                               available_inventory=available_inventory)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.experiment_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/experiment/<int:experiment_id>/add_inventory', methods=['POST'])
+@login_required
+@supervisor_required
+def add_inventory_to_experiment(experiment_id):
+    """ 
+    (U)PDATE: Adds an inventory item to an experiment.
+    This will fire 'trg_reduce_inventory_after_experiment' in MySQL.
+    """
+    db_conn = None
+    cursor = None
+    try:
+        inventory_id = request.form.get('inventory_id')
+        quantity_used = request.form.get('quantity_used')
+        
+        # Check if available (using our SQL Function)
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        cursor.execute("SELECT Is_Inventory_Available(%s, %s)", (inventory_id, quantity_used))
+        is_available = cursor.fetchone()[0]
+
+        if is_available:
+            query = """
+                INSERT INTO Experiment_Inventory (experiment_id, inventory_id, quantity_used)
+                VALUES (%s, %s, %s)
+            """
+            cursor.execute(query, (experiment_id, inventory_id, quantity_used))
+            db_conn.commit()
+            flash('Inventory item added to experiment. Stock has been reduced.', 'success')
+        else:
+            flash('Not enough stock available for this action.', 'danger')
+            
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.view_experiment', experiment_id=experiment_id))
+
+# --- Maintenance Log Routes (Supervisor+) ---
+
+@main_routes_blueprint.route('/maintenance')
+@login_required
+@supervisor_required
+def maintenance_list():
+    """ (R)EAD: List all maintenance logs. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT m.maintenance_id, i.item_name, inv.inventory_id, l.lab_name, 
+                   s.name as logged_by_name, m.log_date, m.description, m.status
+            FROM Maintenance_Log m
+            JOIN Staff s ON m.staff_id = s.staff_id
+            JOIN Inventory inv ON m.inventory_id = inv.inventory_id
+            JOIN Item i ON inv.item_id = i.item_id
+            JOIN Lab l ON inv.lab_id = l.lab_id
+            ORDER BY m.log_date DESC
+        """
+        cursor.execute(query)
+        logs = cursor.fetchall()
+        return render_template('maintenance_list.html', title="Maintenance Logs", logs=logs)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/maintenance/new', methods=['GET', 'POST'])
+@login_required
+@supervisor_required
+def new_maintenance_log():
+    """ 
+    (C)REATE: Create a new maintenance log (calls Stored Procedure).
+    This will also trigger an inventory status update.
+    """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            inventory_id = request.form.get('inventory_id')
+            description = request.form.get('description')
+            staff_id = current_user.id
+            
+            # Call the Stored Procedure 'Log_Maintenance'
+            cursor.callproc('Log_Maintenance', [inventory_id, staff_id, description])
+            db_conn.commit()
+            
+            flash('Maintenance log created. Inventory status set to "Maintenance".', 'success')
+            return redirect(url_for('main_routes.maintenance_list'))
+
+        # GET request: Fetch 'Available' inventory items to log maintenance for
+        if current_user.is_admin():
+             query = """
+                SELECT inv.inventory_id, i.item_name, l.lab_name
+                FROM Inventory inv
+                JOIN Item i ON inv.item_id = i.item_id
+                JOIN Lab l ON inv.lab_id = l.lab_id
+                WHERE inv.status = 'Available'
+                ORDER BY l.lab_name, i.item_name
+             """
+             cursor.execute(query)
+        else:
+            # Supervisor can only log for their own lab
+            query = """
+                SELECT inv.inventory_id, i.item_name, l.lab_name
+                FROM Inventory inv
+                JOIN Item i ON inv.item_id = i.item_id
+                JOIN Lab l ON inv.lab_id = l.lab_id
+                WHERE inv.status = 'Available' AND inv.lab_id = %s
+                ORDER BY i.item_name
+            """
+            cursor.execute(query, (current_user.lab_id,))
+        
+        inventory_items = cursor.fetchall()
+        
+        return render_template('maintenance_form.html', title="New Maintenance Log", inventory_items=inventory_items)
+        
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.maintenance_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/maintenance/complete/<int:maintenance_id>', methods=['POST'])
+@login_required
+@supervisor_required
+def complete_maintenance_log(maintenance_id):
+    """ 
+    (U)PDATE: Mark a maintenance log as 'Completed' (calls Stored Procedure).
+    This will trigger an inventory status update.
+    """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        # Call the Stored Procedure 'Complete_Maintenance'
+        cursor.callproc('Complete_Maintenance', [maintenance_id, current_user.id])
+        db_conn.commit()
+        
+        flash('Maintenance completed. Inventory status set to "Available".', 'success')
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.maintenance_list'))

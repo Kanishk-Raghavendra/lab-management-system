@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Experiment: {{ experiment.experiment_name }}</h1>
+        <a href="{{ url_for('main_routes.experiment_list') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Details
+        </div>
+        <div class="card-body">
+            <p><strong>Lab:</strong> {{ experiment.lab_name }}</p>
+            <p><strong>Supervisor:</strong> {{ experiment.staff_name }}</p>
+            <p><strong>Date:</strong> {{ experiment.experiment_date }}</p>
+            <p><strong>Description:</strong> {{ experiment.description }}</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Inventory Used
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity Used</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in used_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.quantity_used }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center">No inventory has been logged for this experiment.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            Add Inventory Used
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('main_routes.add_inventory_to_experiment', experiment_id=experiment.experiment_id) }}" method="POST">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="inventory_id" class="form-label">Available Inventory</label>
+                        <select class="form-select" id="inventory_id" name="inventory_id" required>
+                            <option value="" disabled selected>Select an item...</option>
+                            {% for item in available_inventory %}
+                                <option value="{{ item.inventory_id }}">{{ item.item_name }} (Available: {{ item.quantity }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="quantity_used" class="form-label">Quantity Used</label>
+                        <input type="number" class="form-control" id="quantity_used" name="quantity_used" min="1" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Item</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
