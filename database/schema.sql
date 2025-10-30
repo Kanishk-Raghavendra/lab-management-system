@@ -107,14 +107,15 @@ CREATE TABLE Experiment (
 CREATE TABLE Student (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE, /* !! ADDED: From seed.sql */
+    email VARCHAR(100) UNIQUE,
+    password_hash VARCHAR(255) NOT NULL, /* !! ADDED: For student login */
     lab_id INT,
     assigned_staff_id INT,
     FOREIGN KEY (lab_id) REFERENCES Lab(lab_id),
     FOREIGN KEY (assigned_staff_id) REFERENCES Staff(staff_id)
 );
 
--- 11. Experiment_Inventory Junction Table
+-- 12. Experiment_Inventory Junction Table
 CREATE TABLE Experiment_Inventory (
     experiment_id INT NOT NULL,
     inventory_id INT NOT NULL,
@@ -124,7 +125,7 @@ CREATE TABLE Experiment_Inventory (
     FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id)
 );
 
--- 12. Maintenance_Log Table
+-- 13. Maintenance_Log Table
 CREATE TABLE Maintenance_Log (
     maintenance_id INT AUTO_INCREMENT PRIMARY KEY,
     inventory_id INT NOT NULL,
@@ -136,7 +137,7 @@ CREATE TABLE Maintenance_Log (
     FOREIGN KEY (staff_id) REFERENCES Staff(staff_id)
 );
 
--- 13. Low_Stock_Alert Table (From triggers.sql)
+-- 14. Low_Stock_Alert Table (From triggers.sql)
 CREATE TABLE IF NOT EXISTS Low_Stock_Alert (
     alert_id INT AUTO_INCREMENT PRIMARY KEY,
     item_id INT NOT NULL,
@@ -145,4 +146,13 @@ CREATE TABLE IF NOT EXISTS Low_Stock_Alert (
     quantity INT,
     FOREIGN KEY (item_id) REFERENCES Item(item_id),
     FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id)
+);
+
+-- 15. Supplier_Item (M:N)
+CREATE TABLE Supplier_Item (
+    supplier_id INT NOT NULL,
+    item_id INT NOT NULL,
+    PRIMARY KEY(supplier_id, item_id),
+    FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES Item(item_id) ON DELETE CASCADE
 );

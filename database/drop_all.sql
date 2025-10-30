@@ -4,6 +4,7 @@ USE lab_management;
 DROP TABLE IF EXISTS Low_Stock_Alert;
 DROP TABLE IF EXISTS Maintenance_Log;
 DROP TABLE IF EXISTS Experiment_Inventory;
+DROP TABLE IF EXISTS Supplier_Item;
 DROP TABLE IF EXISTS Student;
 DROP TABLE IF EXISTS Experiment;
 DROP TABLE IF EXISTS Order_Item;

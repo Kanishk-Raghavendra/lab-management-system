@@ -136,3 +136,36 @@ CALL Get_Items_Nearing_Restock();
 -- Expected Output: 1 row
 -- item_name | item_type  | quantity | min_stock_level | lab_name
 -- 'Beaker'  | 'Consumable' | 15       | 20              | 'Chem Lab 1'
+
+-- -----------------------
+-- 21. TEST STUDENT LOGIN (Check for new password column)
+-- -----------------------
+SELECT student_id, name, email, password_hash FROM Student WHERE student_id = 1;
+-- Expected Output: 1 row for 'Student One' with email and 'pass_student1_hashed'
+
+-- -----------------------
+-- 22. TEST NEW FUNCTION (AGGREGATE): Get item count for Supplier A (ID 1)
+-- -----------------------
+SELECT Get_Supplier_Item_Count(1) AS Supplier_A_Item_Count;
+-- Expected Output: 2 (from seed.sql: Microscope, Test Tube)
+
+-- -----------------------
+-- 23. TEST NEW PROCEDURE (JOIN): Get items for Supplier B (ID 2)
+-- -----------------------
+CALL Get_Supplier_Items(2);
+-- Expected Output: 2 rows
+-- supplier_name | item_name     | item_type
+-- 'Supplier B'  | 'Bunsen Burner' | 'Equipment'
+-- 'Supplier B'  | 'Beaker'      | 'Consumable'
+
+-- -----------------------
+-- 24. TEST NEW PROCEDURE: Assign a new item (Beaker, ID 4) to Supplier A (ID 1)
+-- -----------------------
+CALL Assign_Item_To_Supplier(1, 4);
+-- Expected Output: Query OK, 1 row affected.
+
+-- -----------------------
+-- 25. VERIFY ASSIGNMENT: Check Supplier A's item count again
+-- -----------------------
+SELECT Get_Supplier_Item_Count(1) AS Supplier_A_Item_Count;
+-- Expected Output: 3 (Microscope, Test Tube, AND Beaker)

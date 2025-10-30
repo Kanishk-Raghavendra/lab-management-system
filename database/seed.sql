@@ -61,11 +61,11 @@ INSERT INTO Order_Item(order_id, item_id, quantity_ordered, cost_per_unit) VALUE
 -- -----------------------
 -- Students (!! UPDATED: Added email column and values !!)
 -- -----------------------
-INSERT INTO Student(name, email, lab_id, assigned_staff_id) VALUES
-('Student One','student1@email.com',1, 2),
-('Student Two','student2@email.com',1, 2),
-('Student Three','student3@email.com',1, 3),
-('Student Four','student4@email.com',1, 3);
+INSERT INTO Student(name, email, password_hash, lab_id, assigned_staff_id) VALUES
+('Student One','student1@email.com', 'pass_student1_hashed', 1, 2),
+('Student Two','student2@email.com', 'pass_student2_hashed', 1, 2),
+('Student Three','student3@email.com', 'pass_student3_hashed', 1, 3),
+('Student Four','student4@email.com', 'pass_student4_hashed', 1, 3);
 
 -- -----------------------
 -- Experiments
@@ -80,3 +80,12 @@ INSERT INTO Experiment(experiment_name, lab_id, staff_id, description, experimen
 INSERT INTO Maintenance_Log(inventory_id, staff_id, log_date, description, status) VALUES
 (1,2,'2025-10-09','Clean microscope lens','Pending'),
 (3,2,'2025-10-09','Check Bunsen burner','Pending');
+
+-- -----------------------
+-- Supplier Items
+-- -----------------------
+INSERT INTO Supplier_Item(supplier_id, item_id) VALUES
+(1, 1), -- Supplier A supplies Microscopes
+(1, 2), -- Supplier A supplies Test Tubes
+(2, 3), -- Supplier B supplies Bunsen Burners
+(2, 4); -- Supplier B supplies Beakers

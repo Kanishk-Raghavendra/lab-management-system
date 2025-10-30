@@ -101,4 +101,33 @@ BEGIN
 END;
 //
 
+-- 7️⃣ !! NEW: Assign a Master Item to a Supplier
+CREATE PROCEDURE Assign_Item_To_Supplier(
+    IN p_supplier_id INT,
+    IN p_item_id INT
+)
+BEGIN
+    -- Insert the new M:N relationship
+    INSERT INTO Supplier_Item(supplier_id, item_id)
+    VALUES(p_supplier_id, p_item_id)
+    ON DUPLICATE KEY UPDATE supplier_id = p_supplier_id; -- Handle if already exists
+END;
+//
+
+-- 8️⃣ !! NEW: (JOIN QUERY) Get all items provided by a specific supplier
+CREATE PROCEDURE Get_Supplier_Items(
+    IN p_supplier_id INT
+)
+BEGIN
+    SELECT 
+        s.name AS supplier_name,
+        i.item_name,
+        i.item_type
+    FROM Supplier s
+    JOIN Supplier_Item si ON s.supplier_id = si.supplier_id
+    JOIN Item i ON si.item_id = i.item_id
+    WHERE s.supplier_id = p_supplier_id;
+END;
+//
+
 DELIMITER ;

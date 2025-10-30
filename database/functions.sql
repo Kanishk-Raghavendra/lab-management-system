@@ -71,4 +71,19 @@ BEGIN
 END;
 //
 
+-- 5️⃣ !! NEW: (AGGREGATE QUERY) Get total number of items a supplier provides
+CREATE FUNCTION Get_Supplier_Item_Count(p_supplier_id INT)
+RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE item_count INT;
+    
+    SELECT COUNT(*) INTO item_count -- Aggregate Function COUNT()
+    FROM Supplier_Item
+    WHERE supplier_id = p_supplier_id;
+    
+    RETURN IFNULL(item_count, 0);
+END;
+//
+
 DELIMITER ;
