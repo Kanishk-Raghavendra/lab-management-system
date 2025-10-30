@@ -13,13 +13,20 @@ from . import main_routes_blueprint
 @main_routes_blueprint.route('/dashboard')
 @login_required
 def dashboard():
-    """Main dashboard, protected by login."""
-    # We must use 'main_routes.dashboard' in url_for
+    """
+    Main dashboard.
+    Redirects Students to their own dashboard.
+    Shows Staff the main dashboard.
+    """
+    if current_user.is_student():
+        return render_template('student_dashboard.html', title='Dashboard')
+    
+    # For Staff (Admin, Supervisor, Assistant)
     return render_template('dashboard.html', title='Dashboard')
 
 @main_routes_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handles user login."""
+    """Handles user login for BOTH Staff and Students."""
     if current_user.is_authenticated:
         return redirect(url_for('main_routes.dashboard'))
         
@@ -27,34 +34,52 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
+        db_conn = None
+        cursor = None
         try:
             db_conn = current_app.db_pool.get_connection()
             cursor = db_conn.cursor(dictionary=True)
             
-            query = """
+            user = None
+            user_data = None
+            
+            # 1. Check Staff table first
+            query_staff = """
                 SELECT Staff.*, Roles.role_name 
                 FROM Staff 
                 JOIN Roles ON Staff.role_id = Roles.role_id 
                 WHERE Staff.email = %s
             """
-            cursor.execute(query, (email,))
+            cursor.execute(query_staff, (email,))
             user_data = cursor.fetchone()
             
-            cursor.close()
-            db_conn.close()
-            
-            # !! REMEMBER: This checks plaintext.
-            # Change to bcrypt.check_password_hash for production
             if user_data and user_data['password_hash'] == password:
-                
                 user = User(
-                    staff_id=user_data['staff_id'],
+                    user_id=f"staff_{user_data['staff_id']}",
+                    user_type='Staff',
                     email=user_data['email'],
                     name=user_data['name'],
                     role_name=user_data['role_name'],
                     lab_id=user_data['lab_id']
                 )
+            
+            # 2. If not found in Staff, check Student table
+            if not user:
+                query_student = "SELECT * FROM Student WHERE email = %s"
+                cursor.execute(query_student, (email,))
+                user_data = cursor.fetchone()
                 
+                if user_data and user_data['password_hash'] == password:
+                    user = User(
+                        user_id=f"student_{user_data['student_id']}",
+                        user_type='Student',
+                        email=user_data['email'],
+                        name=user_data['name'],
+                        lab_id=user_data['lab_id']
+                    )
+            
+            # 3. If user was found and password matched
+            if user:
                 login_user(user, remember=request.form.get('remember'))
                 flash(f'Welcome back, {user.name}!', 'success')
                 
@@ -65,6 +90,9 @@ def login():
                 
         except Exception as e:
             flash(f'An error occurred: {e}', 'danger')
+        finally:
+            if cursor: cursor.close()
+            if db_conn: db_conn.close()
 
     return render_template('login.html', title='Login')
 
@@ -843,3 +871,71 @@ def complete_maintenance_log(maintenance_id):
         if db_conn: db_conn.close()
         
     return redirect(url_for('main_routes.maintenance_list'))
+
+# --- Student-Facing Routes ---
+
+@main_routes_blueprint.route('/student/my_lab')
+@login_required
+def student_my_lab():
+    """ (R)EAD: Shows student their lab and supervisor info. """
+    if not current_user.is_student():
+        abort(403) # Forbidden
+        
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT s.name as student_name, l.lab_name, l.location, st.name as supervisor_name, st.email as supervisor_email
+            FROM Student s
+            LEFT JOIN Lab l ON s.lab_id = l.lab_id
+            LEFT JOIN Staff st ON s.assigned_staff_id = st.staff_id
+            WHERE s.student_id = %s
+        """
+        # We must split the composite ID 'student_XX'
+        student_id_int = int(current_user.id.split('_')[1])
+        cursor.execute(query, (student_id_int,))
+        lab_info = cursor.fetchone()
+        
+        return render_template('student_my_lab.html', title="My Lab", lab_info=lab_info)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/student/my_experiments')
+@login_required
+def student_my_experiments():
+    """ (R)EAD: Shows experiments for the student's lab. """
+    if not current_user.is_student():
+        abort(403)
+        
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT e.experiment_name, e.description, e.experiment_date, s.name as supervisor_name
+            FROM Experiment e
+            JOIN Staff s ON e.staff_id = s.staff_id
+            WHERE e.lab_id = %s
+            ORDER BY e.experiment_date DESC
+        """
+        cursor.execute(query, (current_user.lab_id,))
+        experiments = cursor.fetchall()
+        
+        return render_template('student_my_experiments.html', title="Lab Experiments", experiments=experiments)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()

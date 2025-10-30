@@ -1,57 +1,85 @@
 from flask_login import UserMixin
-from app import login_manager  # Import from the main __init__.py
+from app import login_manager
 from flask import current_app
 
 class User(UserMixin):
     """
-    Custom User class for Flask-Login that maps to our 'Staff' table.
+    Custom User class for Flask-Login.
+    Can represent EITHER a 'Staff' or 'Student' user.
     """
-    def __init__(self, staff_id, email, name, role_name, lab_id):
-        self.id = staff_id
+    def __init__(self, user_id, user_type, email, name, lab_id, role_name=None):
+        self.id = user_id        # Will be staff_id OR student_id
+        self.user_type = user_type  # 'Staff' or 'Student'
         self.email = email
         self.name = name
-        self.role_name = role_name
         self.lab_id = lab_id
+        self.role_name = role_name  # Only for Staff members
 
+    # --- Role Check Methods ---
     def is_admin(self):
-        return self.role_name == 'Admin'
+        return self.user_type == 'Staff' and self.role_name == 'Admin'
 
     def is_supervisor(self):
-        return self.role_name == 'Supervisor'
+        return self.user_type == 'Staff' and self.role_name == 'Supervisor'
 
     def is_assistant(self):
-        return self.role_name == 'Assistant'
+        return self.user_type == 'Staff' and self.role_name == 'Assistant'
+    
+    def is_student(self):
+        return self.user_type == 'Student'
+
 
 @login_manager.user_loader
-def load_user(staff_id):
+def load_user(user_id):
     """
     Flask-Login's callback function to load a user from the session.
+    The user_id is now stored as a string: "staff_XX" or "student_XX".
     """
     try:
-        db_conn = current_app.db_pool.get_connection()
-        cursor = db_conn.cursor(dictionary=True) # dictionary=True is key!
+        user_type, user_id_int = user_id.split('_')
+        user_id_int = int(user_id_int)
         
-        query = """
-            SELECT Staff.*, Roles.role_name 
-            FROM Staff 
-            JOIN Roles ON Staff.role_id = Roles.role_id 
-            WHERE Staff.staff_id = %s
-        """
-        cursor.execute(query, (staff_id,))
-        user_data = cursor.fetchone()
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        user_obj = None
+
+        if user_type == 'staff':
+            query = """
+                SELECT Staff.*, Roles.role_name 
+                FROM Staff 
+                JOIN Roles ON Staff.role_id = Roles.role_id 
+                WHERE Staff.staff_id = %s
+            """
+            cursor.execute(query, (user_id_int,))
+            user_data = cursor.fetchone()
+            if user_data:
+                user_obj = User(
+                    user_id=f"staff_{user_data['staff_id']}",
+                    user_type='Staff',
+                    email=user_data['email'],
+                    name=user_data['name'],
+                    role_name=user_data['role_name'],
+                    lab_id=user_data['lab_id']
+                )
+        
+        elif user_type == 'student':
+            query = "SELECT * FROM Student WHERE student_id = %s"
+            cursor.execute(query, (user_id_int,))
+            user_data = cursor.fetchone()
+            if user_data:
+                user_obj = User(
+                    user_id=f"student_{user_data['student_id']}",
+                    user_type='Student',
+                    email=user_data['email'],
+                    name=user_data['name'],
+                    lab_id=user_data['lab_id']
+                )
         
         cursor.close()
         db_conn.close()
+        return user_obj
         
-        if user_data:
-            return User(
-                staff_id=user_data['staff_id'],
-                email=user_data['email'],
-                name=user_data['name'],
-                role_name=user_data['role_name'],
-                lab_id=user_data['lab_id']
-            )
-        return None
     except Exception as e:
         print(f"Error loading user: {e}")
         return None

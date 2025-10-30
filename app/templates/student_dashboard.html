@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Welcome, {{ current_user.name }}!</h1>
+    <p>This is your student dashboard for the lab management system.</p>
+    
+    <div classs="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">My Lab</h5>
+                    <p class="card-text">View details about your assigned lab and supervisor.</p>
+                    <a href="{{ url_for('main_routes.student_my_lab') }}" class="btn btn-primary">View My Lab</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Lab Experiments</h5>
+                    <p class="card-text">See a list of all experiments scheduled for your lab.</p>
+                    <a href="{{ url_for('main_routes.student_my_experiments') }}" class="btn btn-primary">View Experiments</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

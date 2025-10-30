@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>My Lab Information</h1>
+    
+    {% if lab_info and lab_info.lab_name %}
+        <p><strong>Student:</strong> {{ lab_info.student_name }}</p>
+        <hr>
+        <p><strong>Lab:</strong> {{ lab_info.lab_name }}</p>
+        <p><strong>Location:</strong> {{ lab_info.location }}</p>
+        <p><strong>Assigned Supervisor:</strong> {{ lab_info.supervisor_name }}</p>
+        <p><strong>Supervisor Email:</strong> {{ lab_info.supervisor_email }}</p>
+    {% else %}
+        <p>You are not currently assigned to a lab. Please contact an administrator.</p>
+    {% endif %}
+    
+    <a href="{{ url_for('main_routes.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}

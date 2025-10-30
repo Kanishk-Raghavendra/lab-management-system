@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Experiments for My Lab</h1>
+    <p class="text-muted">This is a list of all experiments scheduled for your assigned lab.</p>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Experiment Name</th>
+                    <th>Description</th>
+                    <th>Supervisor</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in experiments %}
+                <tr>
+                    <td>{{ exp.experiment_name }}</td>
+                    <td>{{ exp.description }}</td>
+                    <td>{{ exp.supervisor_name }}</td>
+                    <td>{{ exp.experiment_date }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No experiments are scheduled for your lab at this time.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <a href="{{ url_for('main_routes.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}
