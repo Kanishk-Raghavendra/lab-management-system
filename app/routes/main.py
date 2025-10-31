@@ -14,15 +14,67 @@ from . import main_routes_blueprint
 @login_required
 def dashboard():
     """
-    Main dashboard.
-    Redirects Students to their own dashboard.
-    Shows Staff the main dashboard.
+    Renders a single, powerful dashboard that is aware of the user's role.
+    It fetches different data depending on who is logged in.
     """
+    # Redirect students to their own, separate dashboard
     if current_user.is_student():
         return render_template('student_dashboard.html', title='Dashboard')
     
-    # For Staff (Admin, Supervisor, Assistant)
-    return render_template('dashboard.html', title='Dashboard')
+    # For all staff, gather relevant data and render the main dashboard
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Data to be passed to the template
+        dashboard_data = {}
+        
+        # Fetch Admin-specific data if the user is an admin
+        if current_user.is_admin():
+            cursor.execute("SELECT COUNT(*) AS count FROM Staff")
+            staff_count = cursor.fetchone()['count']
+            cursor.execute("SELECT COUNT(*) AS count FROM Student")
+            student_count = cursor.fetchone()['count']
+            cursor.execute("SELECT COUNT(*) AS count FROM Low_Stock_Alert")
+            low_stock_count = cursor.fetchone()['count']
+            
+            dashboard_data['admin_stats'] = {
+                'staff': staff_count,
+                'students': student_count,
+                'low_stock': low_stock_count
+            }
+
+        # Fetch Supervisor-specific data if the user is a supervisor (or an admin)
+        if current_user.is_supervisor() or current_user.is_admin():
+            # Admins see all labs, Supervisors see only their own
+            lab_filter_query = ""
+            params = []
+            if current_user.is_supervisor():
+                lab_filter_query = "WHERE inv.lab_id = %s"
+                params.append(current_user.lab_id)
+
+            query_maintenance = f"""
+                SELECT m.maintenance_id, i.item_name, m.description
+                FROM Maintenance_Log m
+                JOIN Inventory inv ON m.inventory_id = inv.inventory_id
+                JOIN Item i ON inv.item_id = i.item_id
+                {lab_filter_query} AND m.status = 'Pending'
+                ORDER BY m.log_date ASC LIMIT 5
+            """
+            cursor.execute(query_maintenance, params)
+            dashboard_data['pending_maintenance'] = cursor.fetchall()
+        
+        return render_template('dashboard.html', title='Dashboard', data=dashboard_data)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        # On error, render a simpler, safe version of the dashboard
+        return render_template('dashboard.html', title='Dashboard', data={})
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
 
 @main_routes_blueprint.route('/login', methods=['GET', 'POST'])
 def login():

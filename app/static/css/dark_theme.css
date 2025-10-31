@@ -1,0 +1,134 @@
+/*
+ * LabLink Dark Theme Stylesheet
+ * Complements the "Vapor" Bootswatch theme
+ */
+
+body {
+    font-family: 'Roboto', sans-serif;
+    color: #adb5bd; /* Lighter text for dark backgrounds */
+}
+
+/* Make all cards slightly darker than the body */
+.card {
+    background-color: rgba(30, 30, 30, 0.6);
+    border: 1px solid #444;
+}
+
+/* Style all tables to be dark */
+.table {
+    --bs-table-bg: #222;
+    --bs-table-striped-bg: #2a2a2a;
+    --bs-table-hover-bg: #323232;
+    color: #f8f9fa;
+}
+
+
+/*
+ * =========================================
+ * LOGIN PAGE (Component 11 Fix)
+ * =========================================
+ */
+
+/* 1. Full-screen wrapper for the login page */
+.login-container-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 80vh to account for navbar/footer approx */
+    min-height: 75vh; 
+}
+
+/* 2. The main split-screen card */
+.login-card {
+    display: flex;
+    max-width: 900px; /* Target width */
+    width: 100%;
+    min-height: 500px;
+    background-color: #2a2154; /* Dark purple base */
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border: none;
+    overflow: hidden; /* For rounded corners */
+}
+
+/* 3. Left Side (The Form) */
+.login-form-side {
+    flex: 1;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.login-form-side h3 {
+    color: #fff;
+    font-weight: 300;
+    margin-bottom: 2rem;
+}
+.login-form-side .form-control {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #6c757d;
+    border-radius: 0;
+    color: #fff;
+    padding-left: 0;
+}
+.login-form-side .form-control:focus {
+    background: transparent;
+    color: #fff;
+    box-shadow: none;
+    border-bottom-color: #d63384; /* Pink accent */
+}
+.login-form-side .input-group-text {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #6c757d;
+    border-radius: 0;
+    color: #d63384; /* Pink accent */
+}
+.login-form-side .form-check-label {
+    font-size: 0.9em;
+}
+.login-form-side a {
+    font-size: 0.9em;
+    color: #d63384; /* Pink accent */
+}
+.login-form-side .btn-primary {
+    background-color: #d63384; /* Pink accent button */
+    border: none;
+    font-weight: bold;
+    padding: 10px;
+}
+
+/* 4. Right Side (The Welcome Graphic) */
+.login-welcome-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: #fff;
+    /* This is the abstract wave from your target */
+    background: linear-gradient(135deg, rgba(37,117,252,0.6) 0%, rgba(106,17,203,0.6) 100%),
+                url("https://i.imgur.com/bX0vW8G.jpeg"); /* Placeholder wave texture */
+    background-size: cover;
+    background-position: center;
+}
+.login-welcome-side h2 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: #fff;
+}
+.login-welcome-side p {
+    font-size: 1.1rem;
+    font-weight: 300;
+}
+
+/* 5. Responsive stacking for mobile */
+@media (max-width: 768px) {
+    .login-card {
+        flex-direction: column;
+    }
+    .login-welcome-side {
+        min-height: 250px;
+    }
+}

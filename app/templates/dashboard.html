@@ -1,15 +1,91 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Dashboard</h1>
-    <h3>Hello, {{ current_user.name }}!</h3>
-    <p>Your role is: <strong>{{ current_user.role_name }}</strong></p>
-    
-    {% if current_user.lab_id %}
-        <p>You are assigned to Lab ID: {{ current_user.lab_id }}</p>
-    {% else %}
-        <p>You are not assigned to a specific lab (e.g., Admin).</p>
-    {% endif %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Dashboard</h1>
+            <p class="lead text-muted">Hello, {{ current_user.name }}! Your role is <strong>{{ current_user.role_name }}</strong>.</p>
+        </div>
+    </div>
 
-    <p>From here, you will be able to see lab inventories, manage experiments, and view reports based on your role.</p>
+    <div class="row">
+        
+        {% if current_user.is_admin() and data.admin_stats %}
+        <div class="col-lg-12">
+            <h4>Admin Overview</h4>
+            <hr>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div>
+                        <h2 class="card-title">{{ data.admin_stats.staff }}</h2>
+                        <p class="card-text">Total Staff Members</p>
+                    </div>
+                    <a href="#" class="btn btn-outline-light mt-2">Manage Staff <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-info h-100">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div>
+                        <h2 class="card-title">{{ data.admin_stats.students }}</h2>
+                        <p class="card-text">Registered Students</p>
+                    </div>
+                    <a href="{{ url_for('main_routes.student_list') }}" class="btn btn-outline-light mt-2">View Students <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-danger h-100">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div>
+                        <h2 class="card-title">{{ data.admin_stats.low_stock }}</h2>
+                        <p class="card-text">Low Stock Alerts</p>
+                    </div>
+                    <a href="{{ url_for('main_routes.low_stock_list') }}" class="btn btn-outline-light mt-2">View Alerts <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if (current_user.is_supervisor() or current_user.is_admin()) and data.pending_maintenance is defined %}
+        <div class="col-lg-12 mt-4">
+            <h4>Lab Overview {% if current_user.is_supervisor() %}(Lab ID: {{ current_user.lab_id }}){% endif %}</h4>
+            <hr>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark text-white h-100">
+                <div class="card-header"><i class="fa-solid fa-screwdriver-wrench"></i> Pending Maintenance</div>
+                <ul class="list-group list-group-flush">
+                    {% for item in data.pending_maintenance %}
+                    <li class="list-group-item bg-dark text-white">
+                        <strong>{{ item.item_name }}</strong>: {{ item.description }}
+                    </li>
+                    {% else %}
+                    <li class="list-group-item bg-dark text-white">No pending maintenance.</li>
+                    {% endfor %}
+                </ul>
+                <div class="card-footer">
+                    <a href="{{ url_for('main_routes.maintenance_list') }}" class="btn btn-sm btn-outline-primary">Go to Maintenance <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if current_user.is_assistant() %}
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark text-white h-100">
+                <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Your Tasks</div>
+                <div class="card-body">
+                    <p>Welcome, {{ current_user.name }}.</p>
+                    <p>You can view lab inventory, orders, and experiments using the navigation bar above.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
