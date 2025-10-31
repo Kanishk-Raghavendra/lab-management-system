@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Supervisor Panel: {{ current_user.name }}</h1>
+    <p class="text-muted">This is your dashboard for Lab ID {{ current_user.lab_id }}.</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Pending Maintenance (Your Lab)</div>
+                <ul class="list-group list-group-flush">
+                    {% for item in pending_maintenance %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ item.item_name }}</strong><br>
+                                <small>{{ item.description }}</small>
+                            </div>
+                            <a href="{{ url_for('main_routes.maintenance_list') }}" class="btn btn-sm btn-outline-primary">View</a>
+                        </li>
+                    {% else %}
+                        <li class="list-group-item">No pending maintenance for your lab.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Pending Orders (Your Lab)</div>
+                <ul class="list-group list-group-flush">
+                    {% for order in pending_orders %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Order #{{ order.order_id }}</strong><br>
+                                <small>From: {{ order.supplier_name }}</small>
+                            </div>
+                            <a href="{{ url_for('main_routes.view_order', order_id=order.order_id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                        </li>
+                    {% else %}
+                        <li class="list-group-item">No pending orders for your lab.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

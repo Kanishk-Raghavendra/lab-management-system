@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Admin Panel</h1>
+    <p class="text-muted">Global management dashboard for the Lab Management System.</p>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ stats.staff }}</h5>
+                    <p class="card-text">Total Staff</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">{{ stats.students }}</h5>
+                    <p class="card-text">Total Students</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">{{ stats.labs }}</h5>
+                    <p class="card-text">Total Labs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">{{ stats.low_stock }}</h5>
+                    <p class="card-text">Low Stock Alerts</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Management</div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('main_routes.student_list') }}" class="list-group-item list-group-item-action">View All Students</a>
+                    <a href="#" class="list-group-item list-group-item-action">Manage Staff</a>
+                    <a href="#" class="list-group-item list-group-item-action">Manage Labs</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Catalog & Suppliers</div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('main_routes.item_list') }}" class="list-group-item list-group-item-action">Manage Master Items</a>
+                    <a href="{{ url_for('main_routes.supplier_list') }}" class="list-group-item list-group-item-action">Manage Suppliers</a>
+                    <a href="{{ url_for('main_routes.low_stock_list') }}" class="list-group-item list-group-item-action">View Low Stock Alerts</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

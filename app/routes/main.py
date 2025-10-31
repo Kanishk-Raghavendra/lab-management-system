@@ -106,17 +106,91 @@ def logout():
 
 # --- Example Protected Routes ---
 
-@main_routes_blueprint.route('/admin_only')
+@main_routes_blueprint.route('/admin_panel')
 @login_required
 @admin_required
 def admin_page():
-    return "<h1>Admin Page</h1><p>Only admins can see this.</p>"
+    """ (R)EAD: Shows the main admin dashboard with statistics. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Aggregate Queries
+        cursor.execute("SELECT COUNT(*) AS count FROM Staff")
+        staff_count = cursor.fetchone()['count']
+        
+        cursor.execute("SELECT COUNT(*) AS count FROM Student")
+        student_count = cursor.fetchone()['count']
+        
+        cursor.execute("SELECT COUNT(*) AS count FROM Lab")
+        lab_count = cursor.fetchone()['count']
+        
+        cursor.execute("SELECT COUNT(*) AS count FROM Low_Stock_Alert")
+        low_stock_count = cursor.fetchone()['count']
+        
+        stats = {
+            'staff': staff_count,
+            'students': student_count,
+            'labs': lab_count,
+            'low_stock': low_stock_count
+        }
+        return render_template('admin_dashboard.html', title="Admin Panel", stats=stats)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
 
-@main_routes_blueprint.route('/supervisor_stuff')
+@main_routes_blueprint.route('/supervisor_panel')
 @login_required
 @supervisor_required
 def supervisor_page():
-    return "<h1>Supervisor Page</h1><p>Supervisors and Admins can see this.</p>"
+    """ (R)EAD: Shows a dashboard for supervisors. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Get pending maintenance for this supervisor's lab
+        lab_id = current_user.lab_id
+        
+        query_maintenance = """
+            SELECT m.maintenance_id, i.item_name, m.description, m.log_date
+            FROM Maintenance_Log m
+            JOIN Inventory inv ON m.inventory_id = inv.inventory_id
+            JOIN Item i ON inv.item_id = i.item_id
+            WHERE inv.lab_id = %s AND m.status = 'Pending'
+            ORDER BY m.log_date ASC
+        """
+        cursor.execute(query_maintenance, (lab_id,))
+        pending_maintenance = cursor.fetchall()
+        
+        # Get pending orders for this supervisor's lab
+        query_orders = """
+            SELECT order_id, s.name as supplier_name, order_date
+            FROM `Order` o
+            JOIN Supplier s ON o.supplier_id = s.supplier_id
+            WHERE o.lab_id = %s AND o.status = 'Pending'
+            ORDER BY o.order_date ASC
+        """
+        cursor.execute(query_orders, (lab_id,))
+        pending_orders = cursor.fetchall()
+        
+        return render_template('supervisor_dashboard.html', title="Supervisor Panel",
+                               pending_maintenance=pending_maintenance,
+                               pending_orders=pending_orders)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
 
 # --- Inventory CRUD Routes ---
 
@@ -939,3 +1013,242 @@ def student_my_experiments():
     finally:
         if cursor: cursor.close()
         if db_conn: db_conn.close()
+
+# --- Admin Panel Routes ---
+
+@main_routes_blueprint.route('/admin/students')
+@login_required
+@admin_required
+def student_list():
+    """ (R)EAD: Admin view to see all students and their labs. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT s.name, s.email, l.lab_name, st.name as supervisor_name
+            FROM Student s
+            LEFT JOIN Lab l ON s.lab_id = l.lab_id
+            LEFT JOIN Staff st ON s.assigned_staff_id = st.staff_id
+            ORDER BY s.name
+        """
+        cursor.execute(query)
+        students = cursor.fetchall()
+        return render_template('student_list.html', title="All Students", students=students)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.admin_page'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/low_stock')
+@login_required
+@supervisor_required # Supervisors can also see this
+def low_stock_list():
+    """ (R)EAD: View the low stock alert table. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        query = """
+            SELECT lsa.alert_date, i.item_name, l.lab_name, lsa.quantity, i.min_stock_level
+            FROM Low_Stock_Alert lsa
+            JOIN Inventory inv ON lsa.inventory_id = inv.inventory_id
+            JOIN Item i ON lsa.item_id = i.item_id
+            JOIN Lab l ON inv.lab_id = l.lab_id
+            ORDER BY lsa.alert_date DESC
+        """
+        cursor.execute(query)
+        alerts = cursor.fetchall()
+        return render_template('low_stock_list.html', title="Low Stock Alerts", alerts=alerts)
+        
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+# --- Supplier Management Routes (Admin Only) ---
+
+@main_routes_blueprint.route('/admin/suppliers')
+@login_required
+@admin_required
+def supplier_list():
+    """ (R)EAD: List all suppliers and their item count. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Call our SQL function
+        query = """
+            SELECT s.*, Get_Supplier_Item_Count(s.supplier_id) AS item_count
+            FROM Supplier s
+            ORDER BY s.name
+        """
+        cursor.execute(query)
+        suppliers = cursor.fetchall()
+        return render_template('supplier_list.html', title="Manage Suppliers", suppliers=suppliers)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.admin_page'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/supplier/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_supplier():
+    """ (C)REATE: Add a new supplier. """
+    if request.method == 'POST':
+        db_conn = None
+        cursor = None
+        try:
+            name = request.form.get('name')
+            contact = request.form.get('contact_no')
+            email = request.form.get('email')
+            address = request.form.get('address')
+            
+            query = "INSERT INTO Supplier (name, contact_no, email, address) VALUES (%s, %s, %s, %s)"
+            
+            db_conn = current_app.db_pool.get_connection()
+            cursor = db_conn.cursor()
+            cursor.execute(query, (name, contact, email, address))
+            db_conn.commit()
+            
+            flash(f'Supplier "{name}" created successfully!', 'success')
+            return redirect(url_for('main_routes.supplier_list'))
+        except Exception as e:
+            if db_conn: db_conn.rollback()
+            flash(f'An error occurred: {e}', 'danger')
+        finally:
+            if cursor: cursor.close()
+            if db_conn: db_conn.close()
+            
+    # GET request shows the form
+    return render_template('supplier_form.html', title="New Supplier", form_action=url_for('main_routes.new_supplier'), supplier=None)
+
+
+@main_routes_blueprint.route('/admin/supplier/edit/<int:supplier_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_supplier(supplier_id):
+    """ (U)PDATE: Edit an existing supplier. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        if request.method == 'POST':
+            name = request.form.get('name')
+            contact = request.form.get('contact_no')
+            email = request.form.get('email')
+            address = request.form.get('address')
+            
+            query = """
+                UPDATE Supplier SET name = %s, contact_no = %s, email = %s, address = %s
+                WHERE supplier_id = %s
+            """
+            cursor.execute(query, (name, contact, email, address, supplier_id))
+            db_conn.commit()
+            flash(f'Supplier "{name}" updated successfully!', 'success')
+            return redirect(url_for('main_routes.supplier_list'))
+
+        # GET request: fetch supplier to pre-fill form
+        cursor.execute("SELECT * FROM Supplier WHERE supplier_id = %s", (supplier_id,))
+        supplier = cursor.fetchone()
+        if not supplier:
+            abort(404)
+        
+        return render_template('supplier_form.html', title="Edit Supplier", 
+                               form_action=url_for('main_routes.edit_supplier', supplier_id=supplier_id), 
+                               supplier=supplier)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.supplier_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+@main_routes_blueprint.route('/admin/supplier/view/<int:supplier_id>')
+@login_required
+@admin_required
+def view_supplier(supplier_id):
+    """ (R)EAD: View a supplier, their items, and add more items. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Get supplier details
+        cursor.execute("SELECT * FROM Supplier WHERE supplier_id = %s", (supplier_id,))
+        supplier = cursor.fetchone()
+        if not supplier:
+            abort(404)
+            
+        # Call procedure to get their items
+        cursor.callproc('Get_Supplier_Items', [supplier_id])
+        # We must fetch results from a stored procedure like this
+        supplier_items = []
+        for result in cursor.stored_results():
+            supplier_items = result.fetchall()
+            
+        # Get all master items *not* yet supplied by this supplier
+        query_items = """
+            SELECT item_id, item_name FROM Item
+            WHERE item_id NOT IN (
+                SELECT item_id FROM Supplier_Item WHERE supplier_id = %s
+            )
+            ORDER BY item_name
+        """
+        cursor.execute(query_items, (supplier_id,))
+        all_other_items = cursor.fetchall()
+        
+        return render_template('supplier_view.html', title="View Supplier", 
+                               supplier=supplier, supplier_items=supplier_items, 
+                               all_other_items=all_other_items)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.supplier_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/supplier/<int:supplier_id>/add_item', methods=['POST'])
+@login_required
+@admin_required
+def add_item_to_supplier(supplier_id):
+    """ (U)PDATE: Assign an item to a supplier (calls Stored Procedure). """
+    db_conn = None
+    cursor = None
+    try:
+        item_id = request.form.get('item_id')
+        
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        # Call our new Stored Procedure
+        cursor.callproc('Assign_Item_To_Supplier', [supplier_id, item_id])
+        db_conn.commit()
+        
+        flash('Item assigned to supplier.', 'success')
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.view_supplier', supplier_id=supplier_id))

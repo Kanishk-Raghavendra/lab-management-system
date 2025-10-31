@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Supplier: {{ supplier.name }}</h1>
+        <a href="{{ url_for('main_routes.supplier_list') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Details</div>
+        <div class="card-body">
+            <p><strong>Email:</strong> {{ supplier.email }}</p>
+            <p><strong>Contact:</strong> {{ supplier.contact_no }}</p>
+            <p><strong>Address:</strong> {{ supplier.address }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Items Supplied by {{ supplier.name }}</div>
+                <ul class="list-group list-group-flush">
+                    {% for item in supplier_items %}
+                        <li class="list-group-item">{{ item.item_name }} ({{ item.item_type }})</li>
+                    {% else %}
+                        <li class="list-group-item">This supplier is not linked to any items.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Assign New Item to Supplier</div>
+                <div class="card-body">
+                    <form action="{{ url_for('main_routes.add_item_to_supplier', supplier_id=supplier.supplier_id) }}" method="POST">
+                        <div class="mb-3">
+                            <label for="item_id" class="form-label">Item</label>
+                            <select class="form-select" id="item_id" name="item_id" required>
+                                <option value="" disabled selected>Select an item...</option>
+                                {% for item in all_other_items %}
+                                    <option value="{{ item.item_id }}">{{ item.item_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Assign Item</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

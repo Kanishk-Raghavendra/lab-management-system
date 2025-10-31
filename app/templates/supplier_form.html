@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+
+    <form method="POST" action="{{ form_action }}">
+        <div class="mb-3">
+            <label for="name" class="form-label">Supplier Name</label>
+            <input type="text" class="form-control" id="name" name="name" 
+                   value="{{ supplier.name if supplier else '' }}" required>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" 
+                       value="{{ supplier.email if supplier else '' }}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="contact_no" class="form-label">Contact Number</label>
+                <input type="tel" class="form-control" id="contact_no" name="contact_no" 
+                       value="{{ supplier.contact_no if supplier else '' }}">
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Address</label>
+            <textarea class="form-control" id="address" name="address" rows="3">{{ supplier.address if supplier else '' }}</textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Save Supplier</button>
+        <a href="{{ url_for('main_routes.supplier_list') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}
