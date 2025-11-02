@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h3>{{ title }}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ form_action }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ staff.name if staff else '' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ staff.email if staff else '' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   placeholder="{{ 'Leave blank to keep same' if staff else 'Set initial password' }}" 
+                                   {% if not staff %}required{% endif %}>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="role_id" class="form-label">Role</label>
+                                <select class="form-select" id="role_id" name="role_id" required>
+                                    <option value="" disabled>Select a role...</option>
+                                    {% for role in roles %}
+                                        <option value="{{ role.role_id }}" 
+                                                {% if staff and staff.role_id == role.role_id %}selected{% endif %}>
+                                            {{ role.role_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lab_id" class="form-label">Assign to Lab (Optional)</label>
+                                <select class="form-select" id="lab_id" name="lab_id">
+                                    <option value="">None</option>
+                                    {% for lab in labs %}
+                                        <option value="{{ lab.lab_id }}" 
+                                                {% if staff and staff.lab_id == lab.lab_id %}selected{% endif %}>
+                                            {{ lab.lab_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Staff Member</button>
+                        <a href="{{ url_for('main_routes.staff_list') }}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

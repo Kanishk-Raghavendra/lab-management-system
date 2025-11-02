@@ -3,7 +3,7 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Maintenance Logs</h1>
-        <a href="{{ url_for('main_routes.new_maintenance_log') }}" class="btn btn-success">
+        <a href="{{ url_for('main_routes.new_maintenance_log') }}" class="btn btn-primary">
             + Log New Maintenance
         </a>
     </div>
@@ -33,14 +33,14 @@
                         {% if log.status == 'Pending' %}
                             <span class="badge bg-warning text-dark">{{ log.status }}</span>
                         {% else %}
-                            <span class="badge bg-success">{{ log.status }}</span>
+                            <span class="badge bg-info">{{ log.status }}</span>
                         {% endif %}
                     </td>
                     <td class="actions">
                         {% if log.status == 'Pending' %}
                             <form action="{{ url_for('main_routes.complete_maintenance_log', maintenance_id=log.maintenance_id) }}" method="POST"
                                   onsubmit="return confirm('Mark this maintenance as complete?');">
-                                <button type="submit" class="btn btn-sm btn-success">Mark Complete</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Mark Complete</button>
                             </form>
                         {% endif %}
                     </td>

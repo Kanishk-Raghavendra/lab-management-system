@@ -56,13 +56,21 @@
 
     <div class="row">
         <div class="col-md-6">
-            <div class="card">
+            <div class="card bg-dark">
                 <div class="card-header">Management</div>
+                
                 <div class="list-group list-group-flush">
-                    <a href="{{ url_for('main_routes.student_list') }}" class="list-group-item list-group-item-action">View All Students</a>
-                    <a href="#" class="list-group-item list-group-item-action">Manage Staff</a>
-                    <a href="#" class="list-group-item list-group-item-action">Manage Labs</a>
+                    <a href="{{ url_for('main_routes.student_list') }}" class="list-group-item list-group-item-action bg-dark text-white">
+                        <i class="fa-solid fa-user-graduate fa-fw"></i> Manage Students
+                    </a>
+                    <a href="{{ url_for('main_routes.staff_list') }}" class="list-group-item list-group-item-action bg-dark text-white">
+                        <i class="fa-solid fa-users fa-fw"></i> Manage Staff
+                    </a>
+                    <a href="{{ url_for('main_routes.lab_list') }}" class="list-group-item list-group-item-action bg-dark text-white">
+                        <i class="fa-solid fa-building fa-fw"></i> Manage Labs
+                    </a>
                 </div>
+                
             </div>
         </div>
         <div class="col-md-6">

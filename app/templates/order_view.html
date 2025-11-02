@@ -7,7 +7,7 @@
             {% if order.status == 'Pending' %}
                 <form action="{{ url_for('main_routes.receive_order', order_id=order.order_id) }}" method="POST" class="d-inline"
                       onsubmit="return confirm('Are you sure you want to mark this order as received? This will update inventory.');">
-                    <button type="submit" class="btn btn-success">Mark as Received</button>
+                    <button type="submit" class="btn btn-primary">Mark as Received</button>
                 </form>
             {% endif %}
             <a href="{{ url_for('main_routes.order_list') }}" class="btn btn-secondary">Back to List</a>
@@ -27,7 +27,7 @@
                         {% if order.status == 'Pending' %}
                             <span class="badge bg-warning text-dark">{{ order.status }}</span>
                         {% elif order.status == 'Received' %}
-                            <span class="badge bg-success">{{ order.status }}</span>
+                            <span class="badge bg-info">{{ order.status }}</span>
                         {% else %}
                             <span class="badge bg-secondary">{{ order.status }}</span>
                         {% endif %}

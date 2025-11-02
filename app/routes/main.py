@@ -105,7 +105,8 @@ def login():
             cursor.execute(query_staff, (email,))
             user_data = cursor.fetchone()
             
-            if user_data and user_data['password_hash'] == password:
+            # !! MODIFIED THIS BLOCK (used bcrypt) !!
+            if user_data and bcrypt.check_password_hash(user_data['password_hash'], password):
                 user = User(
                     user_id=f"staff_{user_data['staff_id']}",
                     user_type='Staff',
@@ -121,7 +122,8 @@ def login():
                 cursor.execute(query_student, (email,))
                 user_data = cursor.fetchone()
                 
-                if user_data and user_data['password_hash'] == password:
+                # !! MODIFIED THIS BLOCK (used bcrypt) !!
+                if user_data and bcrypt.check_password_hash(user_data['password_hash'], password):
                     user = User(
                         user_id=f"student_{user_data['student_id']}",
                         user_type='Student',
@@ -1080,7 +1082,7 @@ def student_list():
         cursor = db_conn.cursor(dictionary=True)
         
         query = """
-            SELECT s.name, s.email, l.lab_name, st.name as supervisor_name
+            SELECT s.student_id, s.name, s.email, l.lab_name, st.name as supervisor_name
             FROM Student s
             LEFT JOIN Lab l ON s.lab_id = l.lab_id
             LEFT JOIN Staff st ON s.assigned_staff_id = st.staff_id
@@ -1304,3 +1306,331 @@ def add_item_to_supplier(supplier_id):
         if db_conn: db_conn.close()
         
     return redirect(url_for('main_routes.view_supplier', supplier_id=supplier_id))
+
+# --- User Management Routes (Admin Only) ---
+
+@main_routes_blueprint.route('/admin/staff')
+@login_required
+@admin_required
+def staff_list():
+    """ (R)EAD: Admin view of all staff. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        query = """
+            SELECT s.staff_id, s.name, s.email, r.role_name, l.lab_name
+            FROM Staff s
+            LEFT JOIN Roles r ON s.role_id = r.role_id
+            LEFT JOIN Lab l ON s.lab_id = l.lab_id
+            ORDER BY s.name
+        """
+        cursor.execute(query)
+        staff_members = cursor.fetchall()
+        return render_template('staff_list.html', title="Manage Staff", staff_members=staff_members)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.admin_page'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/staff/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_staff():
+    """ (C)REATE: A new staff member. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            name = request.form.get('name')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            role_id = request.form.get('role_id')
+            lab_id = request.form.get('lab_id') if request.form.get('lab_id') else None
+
+            # !! PASSWORD HASHING !!
+            hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+            
+            query = """
+                INSERT INTO Staff (name, email, password_hash, role_id, lab_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (name, email, hashed_password, role_id, lab_id))
+            db_conn.commit()
+            
+            flash('Staff member created successfully!', 'success')
+            return redirect(url_for('main_routes.staff_list'))
+
+        # GET: Fetch roles and labs for dropdowns
+        cursor.execute("SELECT * FROM Roles")
+        roles = cursor.fetchall()
+        cursor.execute("SELECT * FROM Lab")
+        labs = cursor.fetchall()
+        
+        return render_template('staff_form.html', title="New Staff", 
+                               form_action=url_for('main_routes.new_staff'),
+                               roles=roles, labs=labs, staff=None)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.staff_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/staff/edit/<int:staff_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_staff(staff_id):
+    """ (U)PDATE: Edit a staff member's role and lab. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            name = request.form.get('name')
+            email = request.form.get('email')
+            role_id = request.form.get('role_id')
+            lab_id = request.form.get('lab_id') if request.form.get('lab_id') else None
+            
+            query = """
+                UPDATE Staff SET name = %s, email = %s, role_id = %s, lab_id = %s
+                WHERE staff_id = %s
+            """
+            cursor.execute(query, (name, email, role_id, lab_id, staff_id))
+            
+            # Optional: Change password if provided
+            password = request.form.get('password')
+            if password:
+                hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+                cursor.execute("UPDATE Staff SET password_hash = %s WHERE staff_id = %s", (hashed_password, staff_id))
+            
+            db_conn.commit()
+            flash('Staff member updated successfully!', 'success')
+            return redirect(url_for('main_routes.staff_list'))
+
+        # GET: Fetch current staff data
+        cursor.execute("SELECT * FROM Staff WHERE staff_id = %s", (staff_id,))
+        staff = cursor.fetchone()
+        cursor.execute("SELECT * FROM Roles")
+        roles = cursor.fetchall()
+        cursor.execute("SELECT * FROM Lab")
+        labs = cursor.fetchall()
+        
+        return render_template('staff_form.html', title="Edit Staff", 
+                               form_action=url_for('main_routes.edit_staff', staff_id=staff_id),
+                               roles=roles, labs=labs, staff=staff)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.staff_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/student/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_student():
+    """ (C)REATE: A new student account. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            name = request.form.get('name')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            lab_id = request.form.get('lab_id') if request.form.get('lab_id') else None
+            supervisor_id = request.form.get('supervisor_id') if request.form.get('supervisor_id') else None
+
+            # !! PASSWORD HASHING !!
+            hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+            
+            query = """
+                INSERT INTO Student (name, email, password_hash, lab_id, assigned_staff_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (name, email, hashed_password, lab_id, supervisor_id))
+            db_conn.commit()
+            
+            flash('Student account created successfully!', 'success')
+            return redirect(url_for('main_routes.student_list'))
+
+        # GET: Fetch labs and supervisors for dropdowns
+        cursor.execute("SELECT * FROM Lab")
+        labs = cursor.fetchall()
+        cursor.execute("""
+            SELECT s.staff_id, s.name FROM Staff s
+            JOIN Roles r ON s.role_id = r.role_id
+            WHERE r.role_name = 'Supervisor'
+        """)
+        supervisors = cursor.fetchall()
+        
+        return render_template('student_form.html', title="New Student", 
+                               form_action=url_for('main_routes.new_student'),
+                               labs=labs, supervisors=supervisors, student=None)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.student_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/student/edit/<int:student_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_student(student_id):
+    """ (U)PDATE: Edit a student's assignments. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if request.method == 'POST':
+            name = request.form.get('name')
+            email = request.form.get('email')
+            lab_id = request.form.get('lab_id') if request.form.get('lab_id') else None
+            supervisor_id = request.form.get('supervisor_id') if request.form.get('supervisor_id') else None
+            
+            query = """
+                UPDATE Student SET name = %s, email = %s, lab_id = %s, assigned_staff_id = %s
+                WHERE student_id = %s
+            """
+            cursor.execute(query, (name, email, lab_id, supervisor_id, student_id))
+            
+            # Optional: Change password if provided
+            password = request.form.get('password')
+            if password:
+                hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+                cursor.execute("UPDATE Student SET password_hash = %s WHERE student_id = %s", (hashed_password, student_id))
+            
+            db_conn.commit()
+            flash('Student account updated successfully!', 'success')
+            return redirect(url_for('main_routes.student_list'))
+
+        # GET: Fetch current student data
+        cursor.execute("SELECT * FROM Student WHERE student_id = %s", (student_id,))
+        student = cursor.fetchone()
+        cursor.execute("SELECT * FROM Lab")
+        labs = cursor.fetchall()
+        cursor.execute("""
+            SELECT s.staff_id, s.name FROM Staff s
+            JOIN Roles r ON s.role_id = r.role_id
+            WHERE r.role_name = 'Supervisor'
+        """)
+        supervisors = cursor.fetchall()
+        
+        return render_template('student_form.html', title="Edit Student", 
+                               form_action=url_for('main_routes.edit_student', student_id=student_id),
+                               labs=labs, supervisors=supervisors, student=student)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.student_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+# --- Lab Management Routes (Admin Only) ---
+
+@main_routes_blueprint.route('/admin/labs')
+@login_required
+@admin_required
+def lab_list():
+    """ (R)EAD: List all labs. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Lab ORDER BY lab_name")
+        labs = cursor.fetchall()
+        return render_template('lab_list.html', title="Manage Labs", labs=labs)
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.admin_page'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/lab/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_lab():
+    """ (C)REATE: A new lab. """
+    if request.method == 'POST':
+        db_conn = None
+        cursor = None
+        try:
+            name = request.form.get('lab_name')
+            lab_type = request.form.get('lab_type')
+            location = request.form.get('location')
+            
+            query = "INSERT INTO Lab (lab_name, lab_type, location) VALUES (%s, %s, %s)"
+            db_conn = current_app.db_pool.get_connection()
+            cursor = db_conn.cursor()
+            cursor.execute(query, (name, lab_type, location))
+            db_conn.commit()
+            flash(f'Lab "{name}" created successfully!', 'success')
+            return redirect(url_for('main_routes.lab_list'))
+        except Exception as e:
+            if db_conn: db_conn.rollback()
+            flash(f'An error occurred: {e}', 'danger')
+        finally:
+            if cursor: cursor.close()
+            if db_conn: db_conn.close()
+            
+    # GET request shows the form
+    return render_template('lab_form.html', title="New Lab", form_action=url_for('main_routes.new_lab'), lab=None)
+
+@main_routes_blueprint.route('/admin/lab/edit/<int:lab_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_lab(lab_id):
+    """ (U)PDATE: Edit an existing lab. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        if request.method == 'POST':
+            name = request.form.get('lab_name')
+            lab_type = request.form.get('lab_type')
+            location = request.form.get('location')
+            
+            query = "UPDATE Lab SET lab_name = %s, lab_type = %s, location = %s WHERE lab_id = %s"
+            cursor.execute(query, (name, lab_type, location, lab_id))
+            db_conn.commit()
+            flash(f'Lab "{name}" updated successfully!', 'success')
+            return redirect(url_for('main_routes.lab_list'))
+
+        # GET request: fetch lab to pre-fill form
+        cursor.execute("SELECT * FROM Lab WHERE lab_id = %s", (lab_id,))
+        lab = cursor.fetchone()
+        if not lab:
+            abort(404)
+        
+        return render_template('lab_form.html', title="Edit Lab", 
+                               form_action=url_for('main_routes.edit_lab', lab_id=lab_id), 
+                               lab=lab)
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.lab_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
