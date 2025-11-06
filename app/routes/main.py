@@ -94,7 +94,7 @@ def login():
             
             user = None
             user_data = None
-            
+
             # 1. Check Staff table first
             query_staff = """
                 SELECT Staff.*, Roles.role_name 
@@ -104,33 +104,71 @@ def login():
             """
             cursor.execute(query_staff, (email,))
             user_data = cursor.fetchone()
-            
-            # !! MODIFIED THIS BLOCK (used bcrypt) !!
-            if user_data and bcrypt.check_password_hash(user_data['password_hash'], password):
-                user = User(
-                    user_id=f"staff_{user_data['staff_id']}",
-                    user_type='Staff',
-                    email=user_data['email'],
-                    name=user_data['name'],
-                    role_name=user_data['role_name'],
-                    lab_id=user_data['lab_id']
-                )
-            
-            # 2. If not found in Staff, check Student table
+
+            # Try to authenticate staff (bcrypt check). If the seed contains a
+            # plaintext password, accept it and upgrade to a bcrypt hash.
+            if user_data:
+                stored_pw = user_data.get('password_hash')
+                match = False
+                try:
+                    if stored_pw:
+                        match = bcrypt.check_password_hash(stored_pw, password)
+                except Exception:
+                    match = False
+
+                # Plaintext fallback and upgrade
+                if not match and stored_pw == password:
+                    try:
+                        new_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+                        cursor.execute("UPDATE Staff SET password_hash = %s WHERE staff_id = %s", (new_hash, user_data['staff_id']))
+                        db_conn.commit()
+                        match = True
+                    except Exception:
+                        pass
+
+                if match:
+                    user = User(
+                        user_id=f"staff_{user_data['staff_id']}",
+                        user_type='Staff',
+                        email=user_data['email'],
+                        name=user_data['name'],
+                        role_name=user_data['role_name'],
+                        lab_id=user_data['lab_id']
+                    )
+
+            # 2. If not found/authenticated in Staff, check Student table
             if not user:
                 query_student = "SELECT * FROM Student WHERE email = %s"
                 cursor.execute(query_student, (email,))
                 user_data = cursor.fetchone()
-                
-                # !! MODIFIED THIS BLOCK (used bcrypt) !!
-                if user_data and bcrypt.check_password_hash(user_data['password_hash'], password):
-                    user = User(
-                        user_id=f"student_{user_data['student_id']}",
-                        user_type='Student',
-                        email=user_data['email'],
-                        name=user_data['name'],
-                        lab_id=user_data['lab_id']
-                    )
+
+                if user_data:
+                    stored_pw = user_data.get('password_hash')
+                    match = False
+                    try:
+                        if stored_pw:
+                            match = bcrypt.check_password_hash(stored_pw, password)
+                    except Exception:
+                        match = False
+
+                    # Plaintext fallback and upgrade for Student
+                    if not match and stored_pw == password:
+                        try:
+                            new_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+                            cursor.execute("UPDATE Student SET password_hash = %s WHERE student_id = %s", (new_hash, user_data['student_id']))
+                            db_conn.commit()
+                            match = True
+                        except Exception:
+                            pass
+
+                    if match:
+                        user = User(
+                            user_id=f"student_{user_data['student_id']}",
+                            user_type='Student',
+                            email=user_data['email'],
+                            name=user_data['name'],
+                            lab_id=user_data['lab_id']
+                        )
             
             # 3. If user was found and password matched
             if user:
@@ -239,6 +277,54 @@ def supervisor_page():
                                pending_maintenance=pending_maintenance,
                                pending_orders=pending_orders)
         
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.dashboard'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+
+
+@main_routes_blueprint.route('/supervisor/my_students')
+@login_required
+@supervisor_required
+def supervisor_my_students():
+    """Show students assigned to the logged-in supervisor (or all students for Admin)."""
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+
+        if current_user.is_admin():
+            # Admins can see all students
+            query = """
+                SELECT s.student_id, s.name, s.email, l.lab_name
+                FROM Student s
+                LEFT JOIN Lab l ON s.lab_id = l.lab_id
+                ORDER BY s.name
+            """
+            cursor.execute(query)
+        else:
+            # Supervisors see only their assigned students
+            # current_user.id has format 'staff_<int>'
+            try:
+                supervisor_id = int(current_user.id.split('_')[1])
+            except Exception:
+                supervisor_id = None
+
+            query = """
+                SELECT s.student_id, s.name, s.email, l.lab_name
+                FROM Student s
+                LEFT JOIN Lab l ON s.lab_id = l.lab_id
+                WHERE s.assigned_staff_id = %s
+                ORDER BY s.name
+            """
+            cursor.execute(query, (supervisor_id,))
+
+        students = cursor.fetchall()
+        return render_template('supervisor_my_students.html', title="My Students", students=students)
+
     except Exception as e:
         flash(f'An error occurred: {e}', 'danger')
         return redirect(url_for('main_routes.dashboard'))
@@ -752,10 +838,11 @@ def new_experiment():
             name = request.form.get('experiment_name')
             lab_id = request.form.get('lab_id')
             description = request.form.get('description')
-            staff_id = current_user.id # Assign to logged-in supervisor
+            # FIX: Get integer part of staff ID
+            staff_id_int = int(current_user.id.split('_')[1]) # Assign to logged-in supervisor
             
             # Call the Stored Procedure 'Assign_Experiment'
-            cursor.callproc('Assign_Experiment', [name, lab_id, staff_id, description])
+            cursor.callproc('Assign_Experiment', [name, lab_id, staff_id_int, description])
             db_conn.commit()
             
             cursor.execute("SELECT LAST_INSERT_ID() AS new_id")
@@ -878,6 +965,35 @@ def add_inventory_to_experiment(experiment_id):
         
     return redirect(url_for('main_routes.view_experiment', experiment_id=experiment_id))
 
+# NEW: Delete experiment route
+@main_routes_blueprint.route('/experiment/delete/<int:experiment_id>', methods=['POST'])
+@login_required
+@supervisor_required
+def delete_experiment(experiment_id):
+    """ (D)ELETE: An experiment (only if no inventory is tied to it). """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        cursor.execute("DELETE FROM Experiment WHERE experiment_id = %s", (experiment_id,))
+        db_conn.commit()
+        
+        flash('Experiment deleted successfully.', 'success')
+    except mysql.connector.Error as err:
+        if err.errno == 1451: # Foreign Key constraint fail
+            flash('Cannot delete this experiment. Inventory items are already logged against it.', 'danger')
+        else:
+            flash(f'An error occurred: {err}', 'danger')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.experiment_list'))
+
 # --- Maintenance Log Routes (Supervisor+) ---
 
 @main_routes_blueprint.route('/maintenance')
@@ -928,10 +1044,11 @@ def new_maintenance_log():
         if request.method == 'POST':
             inventory_id = request.form.get('inventory_id')
             description = request.form.get('description')
-            staff_id = current_user.id
+            # FIX: Get integer part of staff ID
+            staff_id_int = int(current_user.id.split('_')[1]) # Get '4' from 'staff_4'
             
             # Call the Stored Procedure 'Log_Maintenance'
-            cursor.callproc('Log_Maintenance', [inventory_id, staff_id, description])
+            cursor.callproc('Log_Maintenance', [inventory_id, staff_id_int, description])
             db_conn.commit()
             
             flash('Maintenance log created. Inventory status set to "Maintenance".', 'success')
@@ -986,8 +1103,10 @@ def complete_maintenance_log(maintenance_id):
         db_conn = current_app.db_pool.get_connection()
         cursor = db_conn.cursor()
         
+        # FIX: Get integer part of staff ID
+        staff_id_int = int(current_user.id.split('_')[1])
         # Call the Stored Procedure 'Complete_Maintenance'
-        cursor.callproc('Complete_Maintenance', [maintenance_id, current_user.id])
+        cursor.callproc('Complete_Maintenance', [maintenance_id, staff_id_int])
         db_conn.commit()
         
         flash('Maintenance completed. Inventory status set to "Available".', 'success')
@@ -1634,3 +1753,89 @@ def edit_lab(lab_id):
     finally:
         if cursor: cursor.close()
         if db_conn: db_conn.close()
+
+@main_routes_blueprint.route('/admin/staff/delete/<int:staff_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_staff(staff_id):
+    """ (D)ELETE: A staff member. """
+    # Prevent admin from deleting themselves
+    # FIX: Compare integer IDs
+    if staff_id == int(current_user.id.split('_')[1]):
+        flash('You cannot delete your own account.', 'danger')
+        return redirect(url_for('main_routes.staff_list'))
+
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        cursor.execute("DELETE FROM Staff WHERE staff_id = %s", (staff_id,))
+        db_conn.commit()
+        
+        flash('Staff member deleted successfully.', 'success')
+    except mysql.connector.Error as err:
+        if err.errno == 1451: # Foreign Key constraint fail
+            flash('Cannot delete this staff member. They are assigned to students, experiments, or maintenance logs.', 'danger')
+        else:
+            flash(f'An error occurred: {err}', 'danger')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.staff_list'))
+
+@main_routes_blueprint.route('/admin/student/delete/<int:student_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_student(student_id):
+    """ (D)ELETE: A student. """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        # Student is not a foreign key in any other table, so this should be safe
+        cursor.execute("DELETE FROM Student WHERE student_id = %s", (student_id,))
+        db_conn.commit()
+        
+        flash('Student account deleted successfully.', 'success')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.student_list'))
+
+@main_routes_blueprint.route('/admin/lab/delete/<int:lab_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_lab(lab_id):
+    """ (D)ELETE: A lab (only if empty). """
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor()
+        
+        cursor.execute("DELETE FROM Lab WHERE lab_id = %s", (lab_id,))
+        db_conn.commit()
+        
+        flash('Lab deleted successfully.', 'success')
+    except mysql.connector.Error as err:
+        if err.errno == 1451: # Foreign Key constraint fail
+            flash('Cannot delete this lab. It is in use by staff, students, or inventory. You must re-assign them all first.', 'danger')
+        else:
+            flash(f'An error occurred: {err}', 'danger')
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
+        
+    return redirect(url_for('main_routes.lab_list'))

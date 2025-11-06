@@ -18,10 +18,14 @@ INSERT INTO Lab(lab_name, lab_type, location) VALUES
 -- -----------------------
 -- Staff (!! UPDATED: Added password_hash !!)
 -- -----------------------
+-- Password hashes are bcrypt-generated. Original passwords for reference:
+-- alice@lab.com: alicepass
+-- bob@lab.com: bobpass
+-- charlie@lab.com: charliepass
 INSERT INTO Staff(name, role_id, contact_no, email, lab_id, password_hash) VALUES
-('Alice',1,'9999999999','alice@lab.com',NULL,'pass_alice_hashed'), -- Admin
-('Bob',2,'8888888888','bob@lab.com',1,'pass_bob_hashed'),       -- Supervisor
-('Charlie',3,'7777777777','charlie@lab.com',1,'pass_charlie_hashed'); -- Assistant
+('Alice',1,'9999999999','alice@lab.com',NULL,'$2b$12$dWQDxlsborMlmwgfRvjd0OOIkHdzZLdcq82gHTdNTj7cgESLS0qmG'), -- Admin
+('Bob',2,'8888888888','bob@lab.com',1,'$2b$12$dV0ev7jg7ptSdCA5N0G.0.lIzFb.cwTT/iqje1/oVuCgx6UXy.VUO'),       -- Supervisor
+('Charlie',3,'7777777777','charlie@lab.com',1,'$2b$12$GiTPmgdw0A6JILYUKbOkCeOYDsXjLDyb7eLQ6dzXFKjtx.RvG1J.W'); -- Assistant
 
 -- -----------------------
 -- Suppliers
@@ -61,11 +65,16 @@ INSERT INTO Order_Item(order_id, item_id, quantity_ordered, cost_per_unit) VALUE
 -- -----------------------
 -- Students (!! UPDATED: Added email column and values !!)
 -- -----------------------
+-- Password hashes are bcrypt-generated. Original passwords for reference:
+-- student1@email.com: student1pass
+-- student2@email.com: student2pass
+-- student3@email.com: student3pass
+-- student4@email.com: student4pass
 INSERT INTO Student(name, email, password_hash, lab_id, assigned_staff_id) VALUES
-('Student One','student1@email.com', 'pass_student1_hashed', 1, 2),
-('Student Two','student2@email.com', 'pass_student2_hashed', 1, 2),
-('Student Three','student3@email.com', 'pass_student3_hashed', 1, 3),
-('Student Four','student4@email.com', 'pass_student4_hashed', 1, 3);
+('Student One','student1@email.com', '$2b$12$R/WAW6vlIcAw9hRcRZhZK.NjPmMi1nZcPZpTwU/WB.ralHSsF3YpK', 1, 2),
+('Student Two','student2@email.com', '$2b$12$DvSwx2DIR888XHxoiOEqm.JAyOP0HLwHqJakyiSuOlf0msXHQsmYq', 1, 2),
+('Student Three','student3@email.com', '$2b$12$D6KqCSkn87VP5Vev58.hEu8uboaT4D0XziWDRhLqzuRHfRQZs0JkW', 1, 3),
+('Student Four','student4@email.com', '$2b$12$0tfeGvMMV3hkQ0NA/0/rhe/y46lGdAUs8cZpuX7Z/6vt6HvrPbZoS', 1, 3);
 
 -- -----------------------
 -- Experiments

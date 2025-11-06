@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
+    <!-- Bootswatch Theme -->
     <link href="https://bootswatch.com/5/vapor/bootstrap.min.css" rel="stylesheet">
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dark_theme.css') }}">
     
     <title>{{ title }} - LabLink</title>
@@ -32,6 +36,7 @@
                     
                     {% if current_user.is_authenticated %}
                         
+                        <!-- Student Links -->
                         {% if current_user.is_student() %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('main_routes.student_my_lab') }}"><i class="fa-solid fa-location-dot"></i> My Lab</a>
@@ -41,15 +46,20 @@
                         </li>
                         {% endif %}
 
+                        <!-- Staff (Non-Student) Links -->
                         {% if not current_user.is_student() %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('main_routes.inventory_list') }}"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
                         </li>
                         {% endif %}
                         
+                        <!-- Supervisor & Admin Links -->
                         {% if current_user.is_supervisor() or current_user.is_admin() %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main_routes.supervisor_page') }}"><i class="fa-solid fa-chalkboard-user"></i> Sup. Panel</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main_routes.supervisor_my_students') }}"><i class="fa-solid fa-user-graduate"></i> My Students</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main_routes.order_list') }}"><i class="fa-solid fa-truck"></i> Manage Orders</a>
@@ -62,6 +72,7 @@
                             </li>
                         {% endif %}
             
+                        <!-- Admin Only Links -->
                         {% if current_user.is_admin() %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main_routes.admin_page') }}"><i class="fa-solid fa-shield-halved"></i> Admin Panel</a>
@@ -73,6 +84,7 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav ms-auto">
+                    <!-- Auth Links -->
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('main_routes.logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
@@ -88,6 +100,7 @@
     </nav>
 
     <main class="container py-4 flex-grow-1">
+        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -99,6 +112,7 @@
             {% endif %}
         {% endwith %}
         
+        <!-- Main Content Block -->
         <div class="card shadow-sm">
             <div class="card-body">
                 {% block content %}{% endblock %}
@@ -112,6 +126,7 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha512-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha512-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
