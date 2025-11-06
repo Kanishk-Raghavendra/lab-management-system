@@ -73,27 +73,31 @@ def db():
     finally:
         cursor.close()
         conn.commit()
-        conn.close()    # Create new connection for schema setup
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+        conn.close()
     
-        # Get base directory path
-        base_dir = Path(__file__).resolve().parent.parent
+    # Create new connection for schema setup
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
     
-            # Skip dropping tables, they will be created if they don't exist        # Drop all stored procedures, functions, and triggers
-        cursor.execute("SHOW PROCEDURE STATUS WHERE Db = %s", (db_config['database'],))
-        for (proc,) in cursor.fetchall():
-            cursor.execute(f"DROP PROCEDURE IF EXISTS {proc[0]}")
-            
-        cursor.execute("SHOW FUNCTION STATUS WHERE Db = %s", (db_config['database'],))
-        for (func,) in cursor.fetchall():
-            cursor.execute(f"DROP FUNCTION IF EXISTS {func[0]}")
-            
-        cursor.execute(f"SHOW TRIGGERS FROM {db_config['database']}")
-        for (trig,) in cursor.fetchall():
-            cursor.execute(f"DROP TRIGGER IF EXISTS {trig[0]}")
-            
-        conn.commit()    # Function to execute SQL file
+    # Get base directory path
+    base_dir = Path(__file__).resolve().parent.parent
+    
+    # Drop all stored procedures, functions, and triggers
+    cursor.execute("SHOW PROCEDURE STATUS WHERE Db = %s", (db_config['database'],))
+    for (proc,) in cursor.fetchall():
+        cursor.execute(f"DROP PROCEDURE IF EXISTS {proc[0]}")
+        
+    cursor.execute("SHOW FUNCTION STATUS WHERE Db = %s", (db_config['database'],))
+    for (func,) in cursor.fetchall():
+        cursor.execute(f"DROP FUNCTION IF EXISTS {func[0]}")
+        
+    cursor.execute(f"SHOW TRIGGERS FROM {db_config['database']}")
+    for (trig,) in cursor.fetchall():
+        cursor.execute(f"DROP TRIGGER IF EXISTS {trig[0]}")
+        
+    conn.commit()
+    
+    # Function to execute SQL file
     def execute_sql_file(file_path, delimiter=';'):
         with open(file_path, 'r') as f:
             sql = f.read()

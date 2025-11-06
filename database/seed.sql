@@ -22,11 +22,10 @@ INSERT INTO Lab(lab_name, lab_type, location) VALUES
 -- admin@lab.com: adminpass
 -- supervisor@lab.com: supervisor123
 -- assistant@lab.com: assistant123
--- student@lab.com: student123
 INSERT INTO Staff(name, role_id, contact_no, email, lab_id, password_hash) VALUES
-('Admin',1,'9999999999','admin@lab.com',NULL,'$2b$12$dWQDxlsborMlmwgfRvjd0OOIkHdzZLdcq82gHTdNTj7cgESLS0qmG'), -- Admin
-('Supervisor',2,'8888888888','supervisor@lab.com',1,'$2b$12$dV0ev7jg7ptSdCA5N0G.0.lIzFb.cwTT/iqje1/oVuCgx6UXy.VUO'),       -- Supervisor
-('Assistant',3,'7777777777','assistant@lab.com',1,'$2b$12$GiTPmgdw0A6JILYUKbOkCeOYDsXjLDyb7eLQ6dzXFKjtx.RvG1J.W'); -- Assistant
+('Admin',1,'9999999999','admin@lab.com',NULL,'$2b$12$W/vTmBesZqqD80Ak/QNLKeM/Hrc3lZA/h40iEPOmdr6NOi/LGzLBe'), -- Admin
+('Supervisor',2,'8888888888','supervisor@lab.com',1,'$2b$12$K2IhZXMF7TCKmlwA.xp4b.5eB.ZdtBPV9UyNOFNl093tmb/VC000C'),       -- Supervisor
+('Assistant',3,'7777777777','assistant@lab.com',1,'$2b$12$zzP.cBwyx5vxo5xBezSotOQ0NgBvoLCVtufhoGo3PZ/ID/lubJgZ.'); -- Assistant
 
 -- -----------------------
 -- Suppliers
@@ -72,10 +71,10 @@ INSERT INTO Order_Item(order_id, item_id, quantity_ordered, cost_per_unit) VALUE
 -- student3@email.com: student3pass
 -- student4@email.com: student4pass
 INSERT INTO Student(name, email, password_hash, lab_id, assigned_staff_id) VALUES
-('Student One','student1@email.com', '$2b$12$R/WAW6vlIcAw9hRcRZhZK.NjPmMi1nZcPZpTwU/WB.ralHSsF3YpK', 1, 2),
-('Student Two','student2@email.com', '$2b$12$DvSwx2DIR888XHxoiOEqm.JAyOP0HLwHqJakyiSuOlf0msXHQsmYq', 1, 2),
-('Student Three','student3@email.com', '$2b$12$D6KqCSkn87VP5Vev58.hEu8uboaT4D0XziWDRhLqzuRHfRQZs0JkW', 1, 3),
-('Student Four','student4@email.com', '$2b$12$0tfeGvMMV3hkQ0NA/0/rhe/y46lGdAUs8cZpuX7Z/6vt6HvrPbZoS', 1, 3);
+('Student One','student1@email.com', '$2b$12$4fzR82rW8Qn1yNnhCINnpeOx0CmMETtqb9wMj5JrtjS4Vna91/P4q', 1, 2),
+('Student Two','student2@email.com', '$2b$12$aPHR8oF92vYrA47nQhcep.ts0h6TOTBEyMZzo4cj0VhVzsEw0sMzS', 1, 2),
+('Student Three','student3@email.com', '$2b$12$ndGYpv2CLnkEUaqW0RPXGOk/f2UbXj5U7/1TcsD/NDaBltbZdZDKy', 1, 3),
+('Student Four','student4@email.com', '$2b$12$MOpjP6JVwaSxiWbU6l64u.uxxdv7dgt0/lMoD6fgg7S6/apLtBVT6', 1, 3);
 
 -- -----------------------
 -- Experiments

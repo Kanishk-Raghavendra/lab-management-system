@@ -73,7 +73,9 @@ def create_app(config_class=Config):
     except mysql.connector.Error as err:
         print(f"Error creating database connection pool: {err}")
         if not app.config.get('TESTING'):
-            exit(1) # Only exit if not in testing mode    # --- Import and Register Blueprints ---
+            exit(1)  # Only exit if not in testing mode
+    
+    # --- Import and Register Blueprints ---
     # We import from our new 'app/routes' package
     from app.routes import main_routes_blueprint
     app.register_blueprint(main_routes_blueprint)

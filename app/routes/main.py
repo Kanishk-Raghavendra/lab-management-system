@@ -1,6 +1,7 @@
 from flask import (render_template, redirect, url_for, flash, 
                    request, current_app, abort, session)
 from flask_login import login_user, logout_user, login_required, current_user
+from datetime import timedelta
 import mysql.connector
 
 from app import bcrypt
@@ -184,9 +185,6 @@ def login():
             # 3. If user was found and password matched
             if user:
                 login_user(user, remember=remember)
-                # Generate a fresh session ID to prevent session fixation
-                session.regenerate()
-
                 flash(f'Welcome back, {user.name}!', 'success')
                 
                 next_page = request.args.get('next')
@@ -206,7 +204,6 @@ def login():
     return render_template('login.html', title='Login')
 
 
-from datetime import timedelta
 @main_routes_blueprint.route('/logout')
 def logout():
     """Logs the user out."""
@@ -216,9 +213,6 @@ def logout():
         # Logout the user
         logout_user()
         flash('You have been logged out.', 'info')
-    return redirect(url_for('main_routes.login'))
-    logout_user()
-    flash('You have been logged out.', 'info')
     return redirect(url_for('main_routes.login'))
 
 # --- Example Protected Routes ---
