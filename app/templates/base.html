@@ -100,11 +100,35 @@
     </nav>
 
     <main class="container py-4 flex-grow-1">
+        <!-- Breadcrumbs -->
+        {% if breadcrumbs is defined %}
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main_routes.dashboard') }}" class="text-decoration-none">
+                        <i class="fa-solid fa-house"></i> Home
+                    </a>
+                </li>
+                {% for title, url in breadcrumbs %}
+                    {% if not loop.last %}
+                        <li class="breadcrumb-item">
+                            <a href="{{ url }}" class="text-decoration-none">{{ title }}</a>
+                        </li>
+                    {% else %}
+                        <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+                    {% endif %}
+                {% endfor %}
+            </ol>
+        </nav>
+        {% endif %}
+
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {% set alert_class = 'alert-' ~ category if category in ['success', 'danger', 'warning', 'info'] else 'alert-info' %}
+                    <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                        <i class="fa-solid fa-{{ 'check' if category == 'success' else 'info-circle' if category == 'info' else 'exclamation-circle' if category == 'warning' else 'exclamation-triangle' }}"></i>
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -127,6 +151,44 @@
     </footer>
 
     <!-- Bootstrap JS -->
+    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha512-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Scripts -->
+    <script src="{{ url_for('static', filename='js/dashboard-charts.js') }}"></script>
+    <script>
+        // Enable all tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // Loading Spinner
+        function showSpinner() {
+            document.getElementById('spinner-overlay').style.display = 'flex';
+        }
+        function hideSpinner() {
+            document.getElementById('spinner-overlay').style.display = 'none';
+        }
+
+        // Add loading spinner to all forms
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function() {
+                    showSpinner();
+                });
+            });
+        });
+    </script>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="spinner-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 </body>
 </html>

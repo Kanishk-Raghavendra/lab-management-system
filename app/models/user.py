@@ -36,8 +36,16 @@ def load_user(user_id):
     The user_id is now stored as a string: "staff_XX" or "student_XX".
     """
     try:
+        # Verify the user_id format
+        if not user_id or '_' not in user_id:
+            return None
+
         user_type, user_id_int = user_id.split('_')
         user_id_int = int(user_id_int)
+
+        # Verify user type is valid
+        if user_type not in ['staff', 'student']:
+            return None
         
         db_conn = current_app.db_pool.get_connection()
         cursor = db_conn.cursor(dictionary=True)
@@ -78,6 +86,11 @@ def load_user(user_id):
         
         cursor.close()
         db_conn.close()
+
+        # If user was not found in database, return None to invalidate session
+        if not user_obj:
+            return None
+
         return user_obj
         
     except Exception as e:

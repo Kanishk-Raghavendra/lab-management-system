@@ -3,7 +3,42 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Inventory Management</h1>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="card bg-dark mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+                        <input type="text" id="itemSearch" class="form-control" placeholder="Search items..." onkeyup="filterItems()">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="labFilter" onchange="filterItems()">
+                        <option value="">All Labs</option>
+                        {% for lab in labs %}
+                            <option value="{{ lab.lab_name }}">{{ lab.lab_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter" onchange="filterItems()">
+                        <option value="">All Statuses</option>
+                        <option value="Available">Available</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Low Stock">Low Stock</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100" onclick="resetFilters()">
+                        <i class="fa-solid fa-rotate"></i> Reset
+                    </button>
+                </div>
+            </div>
         </div>
+    </div>
 
     <div class="table-responsive">
         <table class="table table-dark table-striped table-hover align-middle">

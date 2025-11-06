@@ -9,6 +9,35 @@
         </div>
     </div>
 
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fa-solid fa-bolt"></i> Quick Actions</h5>
+                    <div class="btn-group" role="group">
+                        {% if current_user.is_admin() %}
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Add new staff member">
+                                <i class="fa-solid fa-user-plus"></i> Add Staff
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Register new student">
+                                <i class="fa-solid fa-graduation-cap"></i> Add Student
+                            </button>
+                        {% endif %}
+                        {% if current_user.is_supervisor() %}
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Create new experiment">
+                                <i class="fa-solid fa-flask"></i> New Experiment
+                            </button>
+                        {% endif %}
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="View inventory">
+                            <i class="fa-solid fa-boxes-stacked"></i> Inventory
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         
         {% if current_user.is_admin() and data.admin_stats %}

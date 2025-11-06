@@ -8,14 +8,14 @@ CREATE DATABASE IF NOT EXISTS lab_management;
 USE lab_management;
 
 -- 2. Roles Table
-CREATE TABLE Roles (
+CREATE TABLE IF NOT EXISTS Roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE, /* Admin, Supervisor, Assistant */
     description VARCHAR(255)
 );
 
 -- 3. Supplier Table
-CREATE TABLE Supplier (
+CREATE TABLE IF NOT EXISTS Supplier (
     supplier_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     contact_no VARCHAR(15),
@@ -24,7 +24,7 @@ CREATE TABLE Supplier (
 );
 
 -- 4. Item Table (Equipment + Consumables)
-CREATE TABLE Item (
+CREATE TABLE IF NOT EXISTS Item (
     item_id INT AUTO_INCREMENT PRIMARY KEY,
     item_name VARCHAR(100) NOT NULL,
     item_type ENUM('Equipment','Consumable') NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE Item (
 );
 
 -- 5. Lab Table
-CREATE TABLE Lab (
+CREATE TABLE IF NOT EXISTS Lab (
     lab_id INT AUTO_INCREMENT PRIMARY KEY,
     lab_name VARCHAR(100) NOT NULL,
     lab_type ENUM('Chemistry','Physics') NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE Lab (
 );
 
 -- 6. Staff Table
-CREATE TABLE Staff (
+CREATE TABLE IF NOT EXISTS Staff (
     staff_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     role_id INT NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE Staff (
 );
 
 -- 7. Inventory Table
-CREATE TABLE Inventory (
+CREATE TABLE IF NOT EXISTS Inventory (
     inventory_id INT AUTO_INCREMENT PRIMARY KEY,
     item_id INT NOT NULL,
     lab_id INT NOT NULL, /* !! UPDATED: Made this NOT NULL */
@@ -68,7 +68,7 @@ CREATE TABLE Inventory (
 );
 
 -- 8. Order Table
-CREATE TABLE `Order` (
+CREATE TABLE IF NOT EXISTS `Order` (
     order_id INT AUTO_INCREMENT PRIMARY KEY,
     supplier_id INT NOT NULL,
     lab_id INT NOT NULL, /* !! ADDED: Specifies which lab the order is for */
@@ -81,7 +81,7 @@ CREATE TABLE `Order` (
 );
 
 -- 9. Order_Item Junction Table
-CREATE TABLE Order_Item (
+CREATE TABLE IF NOT EXISTS Order_Item (
     order_id INT NOT NULL,
     item_id INT NOT NULL,
     quantity_ordered INT NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE Order_Item (
 );
 
 -- 10. Experiment Table
-CREATE TABLE Experiment (
+CREATE TABLE IF NOT EXISTS Experiment (
     experiment_id INT AUTO_INCREMENT PRIMARY KEY,
     experiment_name VARCHAR(100) NOT NULL,
     lab_id INT,
@@ -104,7 +104,7 @@ CREATE TABLE Experiment (
 );
 
 -- 11. Student Table
-CREATE TABLE Student (
+CREATE TABLE IF NOT EXISTS Student (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE,
@@ -116,7 +116,7 @@ CREATE TABLE Student (
 );
 
 -- 12. Experiment_Inventory Junction Table
-CREATE TABLE Experiment_Inventory (
+CREATE TABLE IF NOT EXISTS Experiment_Inventory (
     experiment_id INT NOT NULL,
     inventory_id INT NOT NULL,
     quantity_used INT NOT NULL,
@@ -126,7 +126,7 @@ CREATE TABLE Experiment_Inventory (
 );
 
 -- 13. Maintenance_Log Table
-CREATE TABLE Maintenance_Log (
+CREATE TABLE IF NOT EXISTS Maintenance_Log (
     maintenance_id INT AUTO_INCREMENT PRIMARY KEY,
     inventory_id INT NOT NULL,
     staff_id INT NOT NULL,
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS Low_Stock_Alert (
 );
 
 -- 15. Supplier_Item (M:N)
-CREATE TABLE Supplier_Item (
+CREATE TABLE IF NOT EXISTS Supplier_Item (
     supplier_id INT NOT NULL,
     item_id INT NOT NULL,
     PRIMARY KEY(supplier_id, item_id),

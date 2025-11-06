@@ -1,5 +1,5 @@
 from flask import (render_template, redirect, url_for, flash, 
-                   request, current_app, abort)
+                   request, current_app, abort, session)
 from flask_login import login_user, logout_user, login_required, current_user
 import mysql.connector
 
@@ -79,12 +79,23 @@ def dashboard():
 @main_routes_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
     """Handles user login for BOTH Staff and Students."""
+    # If already logged in, redirect to dashboard
     if current_user.is_authenticated:
         return redirect(url_for('main_routes.dashboard'))
         
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+        # Enhanced remember-me logic
+        remember = request.form.get('remember') == 'true'
+        # Even if remember-me is checked, limit session to 30 days
+        session.permanent = True  # Enable session expiry
+        if remember:
+            session.permanent = True
+            current_app.permanent_session_lifetime = timedelta(days=30)
+        else:
+            session.permanent = True
+            current_app.permanent_session_lifetime = timedelta(hours=1)
         
         db_conn = None
         cursor = None
@@ -172,13 +183,19 @@ def login():
             
             # 3. If user was found and password matched
             if user:
-                login_user(user, remember=request.form.get('remember'))
+                login_user(user, remember=remember)
+                # Generate a fresh session ID to prevent session fixation
+                session.regenerate()
+
                 flash(f'Welcome back, {user.name}!', 'success')
                 
                 next_page = request.args.get('next')
-                return redirect(next_page) if next_page else redirect(url_for('main_routes.dashboard'))
+                # More secure next page validation
+                if next_page and next_page.startswith('/') and not next_page.startswith('//'):
+                    return redirect(next_page)
+                return redirect(url_for('main_routes.dashboard'))
             else:
-                flash('Login Unsuccessful. Please check email and password.', 'danger')
+                flash('Invalid email or password', 'danger')
                 
         except Exception as e:
             flash(f'An error occurred: {e}', 'danger')
@@ -189,9 +206,17 @@ def login():
     return render_template('login.html', title='Login')
 
 
+from datetime import timedelta
 @main_routes_blueprint.route('/logout')
 def logout():
     """Logs the user out."""
+    if current_user.is_authenticated:
+        # Clear session data
+        session.clear()
+        # Logout the user
+        logout_user()
+        flash('You have been logged out.', 'info')
+    return redirect(url_for('main_routes.login'))
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('main_routes.login'))
@@ -345,7 +370,12 @@ def inventory_list():
         db_conn = current_app.db_pool.get_connection()
         cursor = db_conn.cursor(dictionary=True)
         
-        # JOIN query to get item names and lab names
+        # Get search and filter parameters
+        search = request.args.get('search', '')
+        lab_filter = request.args.get('lab')
+        status_filter = request.args.get('status')
+        
+        # Base query
         query = """
             SELECT 
                 inv.inventory_id,
@@ -356,21 +386,84 @@ def inventory_list():
             FROM Inventory inv
             JOIN Item i ON inv.item_id = i.item_id
             JOIN Lab l ON inv.lab_id = l.lab_id
-            ORDER BY l.lab_name, i.item_name
+            WHERE 1=1
         """
-        cursor.execute(query)
+        params = []
+        
+        # Add filters
+        if search:
+            query += " AND i.item_name LIKE %s"
+            params.append(f"%{search}%")
+            
+        if lab_filter:
+            query += " AND l.lab_id = %s"
+            params.append(lab_filter)
+            
+        if status_filter:
+            query += " AND inv.status = %s"
+            params.append(status_filter)
+            
+        query += " ORDER BY l.lab_name, i.item_name"
+        
+        cursor.execute(query, tuple(params))
         inventory_items = cursor.fetchall()
         
         cursor.close()
         db_conn.close()
         
         return render_template('inventory_list.html', 
-                               title='Inventory', 
+                               title='Inventory Management', 
                                inventory_items=inventory_items)
     except Exception as e:
         flash(f'An error occurred: {e}', 'danger')
         return redirect(url_for('main_routes.dashboard'))
 
+@main_routes_blueprint.route('/inventory/new', methods=['GET', 'POST'])
+@login_required
+@supervisor_required
+def new_inventory():
+    """(C)REATE: Add a new inventory item."""
+    db_conn = None
+    cursor = None
+    try:
+        db_conn = current_app.db_pool.get_connection()
+        cursor = db_conn.cursor(dictionary=True)
+        
+        if request.method == 'POST':
+            item_id = request.form.get('item_id')
+            lab_id = request.form.get('lab_id')
+            quantity = request.form.get('quantity')
+            status = request.form.get('status')
+            
+            query = """
+                INSERT INTO Inventory (item_id, lab_id, quantity, status)
+                VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(query, (item_id, lab_id, quantity, status))
+            db_conn.commit()
+            
+            flash('Inventory item added successfully', 'success')
+            return redirect(url_for('main_routes.inventory_list'))
+            
+        # GET: Show form with available items and labs
+        cursor.execute("SELECT item_id, item_name FROM Item ORDER BY item_name")
+        items = cursor.fetchall()
+        
+        if current_user.is_admin():
+            cursor.execute("SELECT lab_id, lab_name FROM Lab ORDER BY lab_name")
+        else:
+            cursor.execute("SELECT lab_id, lab_name FROM Lab WHERE lab_id = %s", (current_user.lab_id,))
+        labs = cursor.fetchall()
+        
+        return render_template('inventory_form.html', title='Add Inventory',
+                               items=items, labs=labs)
+                               
+    except Exception as e:
+        flash(f'An error occurred: {e}', 'danger')
+        return redirect(url_for('main_routes.inventory_list'))
+    finally:
+        if cursor: cursor.close()
+        if db_conn: db_conn.close()
 
 @main_routes_blueprint.route('/inventory/edit/<int:inventory_id>', methods=['GET', 'POST'])
 @login_required
@@ -430,7 +523,7 @@ def edit_inventory(inventory_id):
         if db_conn:
             db_conn.close()
 
-@main_routes_blueprint.route('/inventory/delete/<int:inventory_id>', methods=['POST'])
+@main_routes_blueprint.route('/inventory/<int:inventory_id>/delete', methods=['POST'])
 @login_required
 @supervisor_required # Only Supervisors or Admins can delete
 def delete_inventory(inventory_id):
