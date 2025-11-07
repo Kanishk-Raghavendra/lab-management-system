@@ -145,7 +145,8 @@ CREATE TABLE IF NOT EXISTS Low_Stock_Alert (
     alert_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     quantity INT,
     FOREIGN KEY (item_id) REFERENCES Item(item_id),
-    FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id)
+    FOREIGN KEY (inventory_id) REFERENCES Inventory(inventory_id),
+    UNIQUE KEY uk_low_stock_inventory (inventory_id)
 );
 
 -- 15. Supplier_Item (M:N)

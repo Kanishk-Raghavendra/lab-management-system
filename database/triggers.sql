@@ -90,10 +90,15 @@ BEGIN
     DECLARE v_min_stock INT;
     SELECT min_stock_level INTO v_min_stock FROM Item WHERE item_id = NEW.item_id;
 
-    -- Check if new quantity is below threshold AND old one was not
-    IF NEW.quantity < v_min_stock AND OLD.quantity >= v_min_stock THEN
+    -- When quantity drops below minimum, upsert alert. When it recovers, clear alert.
+    IF NEW.quantity < v_min_stock THEN
         INSERT INTO Low_Stock_Alert(item_id, inventory_id, quantity)
-        VALUES (NEW.item_id, NEW.inventory_id, NEW.quantity);
+        VALUES (NEW.item_id, NEW.inventory_id, NEW.quantity)
+        ON DUPLICATE KEY UPDATE
+            quantity = NEW.quantity,
+            alert_date = NOW();
+    ELSEIF NEW.quantity >= v_min_stock AND OLD.quantity < v_min_stock THEN
+        DELETE FROM Low_Stock_Alert WHERE inventory_id = NEW.inventory_id;
     END IF;
 END;
 //

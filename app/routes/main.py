@@ -1322,6 +1322,7 @@ def low_stock_list():
             JOIN Inventory inv ON lsa.inventory_id = inv.inventory_id
             JOIN Item i ON lsa.item_id = i.item_id
             JOIN Lab l ON inv.lab_id = l.lab_id
+            WHERE inv.quantity < i.min_stock_level
             ORDER BY lsa.alert_date DESC
         """
         cursor.execute(query)
